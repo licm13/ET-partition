@@ -10,8 +10,8 @@ import numpy as np
 import warnings
 from scipy.ndimage.filters import gaussian_filter
 
-from TEA.CSWI import CSWI
-from TEA.DiurnalCentroid import DiurnalCentroid
+from .CSWI import CSWI
+from .DiurnalCentroid import DiurnalCentroid
 import TEA.DWCI as DWCI
 
 

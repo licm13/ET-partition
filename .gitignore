@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.so
+*.dylib
+.ipynb_checkpoints/
+outputs/
+# Legacy build artefacts
+meta.yaml
+build/
+linux-32/
+osx-64/
+win-32/
+win-64/
+*.sh
+*.bat

@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "et-partition"
+version = "0.1.0"
+description = "Reference implementations for evapotranspiration partitioning methods"
+readme = "README.md"
+authors = [{name = "ET Partition Maintainers"}]
+license = {text = "Mixed"}
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.23",
+    "pandas>=1.5",
+    "matplotlib>=3.7",
+    "seaborn>=0.12",
+    "xarray>=2023.1",
+    "scikit-learn>=1.3",
+    "numba>=0.57",
+    "netCDF4>=1.6",
+    "openpyxl>=3.1"
+]
+
+[project.urls]
+"Source" = "https://github.com/example/et-partition"

@@ -10,7 +10,7 @@ import os
 import datetime
 # from pyquantrf import QuantileRandomForestRegressor
 from .core import QuantileRandomForestRegressor
-from TEA.PreProc import build_dataset, preprocess
+from .PreProc import build_dataset, preprocess
 
 def partition(ds,
         percs=np.linspace(50,100,11),CSWIlims=np.array([-1]),
