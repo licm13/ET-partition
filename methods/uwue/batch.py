@@ -1,59 +1,34 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-=============================================================================
-uWUE 批处理分析工具
-=============================================================================
-作者: LCM
-日期: 2025-07-11
-协助: Gemini & Claude AI
+"""Batch processing toolkit for the uWUE evapotranspiration partition method."""
 
-描述: 本脚本用于批量处理 FLUXNET 数据，执行 Zhou 等人的 uWUE 分解方法，
-     计算蒸散发中的蒸腾部分。支持可视化结果和进度监控。
+from __future__ import annotations
 
-数据处理说明:
-- 本代码处理 AmeriFlux 数据格式
-- 使用的 JSON 配置文件已针对 AmeriFlux 进行修改和简化
-- 原始 BerkeleyConversion_original.json 为 Jacob Nelson 提供，专用于 FLUXNET2015 数据
-- 当前 JSON 配置适配 AmeriFlux 数据结构，去除了不必要的复杂性
-
-uWUE 方法参考:
-Zhou, S., et al. (2016). uWUE paper WRR
-=============================================================================
-"""
-
-import os
-import re
-import sys
-from time import time
-from datetime import datetime
+import argparse
 import logging
+import sys
+import re
+from datetime import datetime
 from pathlib import Path
+from time import time
+from typing import Iterable, Optional
 
-# 核心数据处理库
-import xarray as xr
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
-# 可视化库
-import matplotlib.pyplot as plt
 import seaborn as sns
+import xarray as xr
 from matplotlib.dates import DateFormatter
-import matplotlib.dates as mdates
 
-# 自定义模块
-try:
-    from preprocess import build_dataset_modified
-    import bigleaf
-    import zhou
-except ImportError as e:
-    print(f"❌ 缺少必要的模块: {e}")
-    print("请确保已正确安装并导入 preprocess, bigleaf, zhou 模块")
-    sys.exit(1)
+from . import bigleaf, zhou
+from .preprocess import build_dataset_modified
 
 # 设置绘图样式
-plt.style.use('seaborn-v0_8')
+plt.style.use("seaborn-v0_8")
 sns.set_palette("husl")
+
+DEFAULT_PATTERN = re.compile(
+    r"^(?:AMF|FLX)_.*_FLUXNET(?:2015)?_FULLSET_\d{4}-\d{4}_\d+-\d+$"
+)
 
 class uWUEBatchProcessor:
     """
@@ -66,7 +41,13 @@ class uWUEBatchProcessor:
     4. 导出处理结果
     """
     
-    def __init__(self, base_path, output_path, create_plots=True):
+    def __init__(
+        self,
+        base_path: Path,
+        output_path: Path,
+        create_plots: bool = True,
+        folder_pattern: re.Pattern[str] = DEFAULT_PATTERN,
+    ) -> None:
         """
         初始化处理器
         
@@ -78,17 +59,13 @@ class uWUEBatchProcessor:
         self.base_path = Path(base_path)
         self.output_path = Path(output_path)
         self.create_plots = create_plots
-        
+        self.folder_pattern = folder_pattern
+
         # 确保输出目录存在
         self.output_path.mkdir(parents=True, exist_ok=True)
-        
+
         # 设置日志
         self._setup_logging()
-        
-        # 文件夹名称匹配模式
-        # 注释部分为测试站点FLX_FI-Hyy_FLUXNET2015_FULLSET_HH_2008-2010_1-3.csv
-        # self.folder_pattern = re.compile(r'^AMF_.*_FLUXNET_FULLSET_\d{4}-\d{4}_\d+-\d+$') # AmeriFLUX的命名规则
-        self.folder_pattern = re.compile(r'^FLX_.*_FLUXNET2015_FULLSET_\d{4}-\d{4}_\d+-\d+$') # FLUXNET和测试集的命名规则
 
         # 处理结果统计
         self.processing_stats = {
@@ -471,22 +448,48 @@ class uWUEBatchProcessor:
         self.logger.info("\n🎉 所有处理完成!")
 
 
-def main():
-    """主函数"""
-    # 配置参数
-    # BASE_PATH = 'Z:\\LCM\\ET_T_Partition\\Test_Site'  # 测试数据源根目录
-    BASE_PATH = 'Z:\\Observation\\FLUXNET.4.0\\FLUXNET2015-Tier2'
-    # BASE_PATH = 'Z:\\Observation\\AmeriFLUX'  # AmeriFLUX根目录
+def main(argv: Optional[Iterable[str]] = None) -> None:
+    """Command-line interface for the uWUE batch workflow."""
 
-    OUTPUT_PATH = 'Z:\\LCM\\ET_T_Partition\\uWUE\\uWUE_FLUXNET_Output'
-    # OUTPUT_PATH = 'Z:\\LCM\\ET_T_Partition\\Test_Site'  # 测试目录
-    # OUTPUT_PATH = 'Z:\\LCM\\ET_T_Partition\\uWUE\\uWUE_AmeriFLUX_Output'  # AmeriFLUX输出目录
-    CREATE_PLOTS = True  # 是否生成可视化图表
-    
-    # 创建处理器并运行
-    processor = uWUEBatchProcessor(BASE_PATH, OUTPUT_PATH, CREATE_PLOTS)
+    repo_root = Path(__file__).resolve().parents[2]
+    default_base = repo_root / "data" / "test_site"
+    default_output = repo_root / "outputs" / "uwue"
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--base-path",
+        type=Path,
+        default=default_base,
+        help="Directory containing Fluxnet/AmeriFlux style site folders.",
+    )
+    parser.add_argument(
+        "--output-path",
+        type=Path,
+        default=default_output,
+        help="Directory where uWUE results will be stored.",
+    )
+    parser.add_argument(
+        "--no-plots",
+        action="store_true",
+        help="Disable generation of diagnostic plots.",
+    )
+    parser.add_argument(
+        "--pattern",
+        type=str,
+        default=DEFAULT_PATTERN.pattern,
+        help="Regular expression used to match site folder names.",
+    )
+
+    args = parser.parse_args(args=list(argv) if argv is not None else None)
+
+    processor = uWUEBatchProcessor(
+        base_path=args.base_path,
+        output_path=args.output_path,
+        create_plots=not args.no_plots,
+        folder_pattern=re.compile(args.pattern),
+    )
     processor.run()
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - CLI entry point
     main()
