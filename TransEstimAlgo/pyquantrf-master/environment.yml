@@ -1,0 +1,9 @@
+name: pyquantrf
+channels:
+  - conda-forge
+  - no-defaults
+dependencies:
+  - python
+  - numpy
+  - scikit-learn
+  - numba

@@ -1,0 +1,8 @@
+name: tea
+channels:
+  - jnelson18
+  - conda-forge
+dependencies:
+  - numpy
+  - scipy
+  - pyquantrf
