@@ -1,0 +1,40 @@
+# ET Partition - Python Dependencies
+# =====================================
+# This file lists all required Python packages for the ET-partition project.
+#
+# Installation:
+#   pip install -r requirements.txt
+#
+# Or install the project in editable mode (recommended):
+#   pip install -e .
+
+# Core scientific computing
+numpy>=1.23
+pandas>=1.5
+scipy>=1.10
+
+# Data visualization
+matplotlib>=3.7
+seaborn>=0.12
+
+# Scientific data formats
+xarray>=2023.1
+netCDF4>=1.6
+
+# Machine learning (for TEA method)
+scikit-learn>=1.3
+
+# Performance optimization (for TEA method)
+numba>=0.57
+
+# File I/O
+openpyxl>=3.1
+
+# Optional: Jupyter for tutorials
+# jupyter>=1.0
+# jupyterlab>=4.0
+
+# Development dependencies (optional)
+# pytest>=7.0
+# black>=23.0
+# flake8>=6.0
