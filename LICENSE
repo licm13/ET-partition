@@ -1,0 +1,123 @@
+ET-Partition License Information
+=================================
+
+This repository consolidates code from multiple sources, each with its own license.
+The licensing for this consolidated repository is MIXED, inheriting from the upstream
+projects as detailed below.
+
+本仓库整合了多个来源的代码，每个来源都有自己的许可证。
+本整合仓库的许可为混合许可，继承自上游项目，详情如下。
+
+---
+
+COMPONENT LICENSES / 组件许可证
+=================================
+
+1. uWUE Method (methods/uwue/)
+   Author: Implementation based on Zhou et al. (2016)
+   License: Adapted from bigleaf R package and original implementation
+   Original Paper: https://doi.org/10.1002/2015WR017766
+
+   Note: bigleaf R package is GPL-3
+   Reference: https://CRAN.R-project.org/package=bigleaf
+
+2. TEA Method (methods/tea/)
+   Author: Jacob A. Nelson et al.
+   License: See methods/tea/LICENSE
+   Original Repository: https://github.com/jnelson18/ecosystem-transpiration
+   DOI: https://zenodo.org/badge/latestdoi/121650199
+   Original Paper: https://doi.org/10.5194/bg-15-2433-2018
+
+3. Perez-Priego Method (methods/perez_priego/)
+   Author: Implementation based on Perez-Priego et al. (2018)
+   License: Research/Educational Use
+   Original Paper: https://doi.org/10.1029/2018JG004637
+
+4. Integration Code and Documentation
+   Author: Changming Li (with assistance from Gemini & Claude AI)
+   Date: 2025
+   License: MIT License (see below)
+   Includes: Project structure, batch processing, tests, documentation
+
+---
+
+MIT LICENSE FOR INTEGRATION CODE
+==================================
+
+Copyright (c) 2025 Changming Li
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+THIRD-PARTY LICENSES
+=====================
+
+See the following files for detailed license information:
+
+- methods/tea/LICENSE - TEA method license
+- third_party/ - Archived resources from original projects
+
+---
+
+USAGE GUIDELINES / 使用指南
+============================
+
+1. When using this software, please cite the original method papers:
+
+   - uWUE: Zhou et al. (2016), Water Resources Research
+   - TEA: Nelson et al. (2018), Biogeosciences
+   - Perez-Priego: Perez-Priego et al. (2018), JGR Biogeosciences
+
+2. When redistributing code from specific methods, respect the original licenses.
+
+3. For research use, attribution to both original authors and this repository
+   is appreciated.
+
+---
+
+使用本软件时，请遵循以下准则：
+
+1. 引用原始方法论文：
+   - uWUE: Zhou等（2016），Water Resources Research
+   - TEA: Nelson等（2018），Biogeosciences
+   - Perez-Priego: Perez-Priego等（2018），JGR Biogeosciences
+
+2. 重新分发特定方法的代码时，请尊重原始许可证。
+
+3. 用于研究时，请同时注明原作者和本仓库。
+
+---
+
+DISCLAIMER / 免责声明
+======================
+
+THIS SOFTWARE IS PROVIDED FOR RESEARCH AND EDUCATIONAL PURPOSES. THE AUTHORS
+MAKE NO WARRANTIES ABOUT THE SUITABILITY, RELIABILITY, AVAILABILITY, TIMELINESS,
+OR ACCURACY OF THE SOFTWARE OR RESULTS OBTAINED FROM ITS USE.
+
+本软件仅供研究和教育目的。作者对软件的适用性、可靠性、可用性、及时性或
+准确性，以及使用软件获得的结果不作任何保证。
+
+---
+
+For questions about licensing, please open an issue on GitHub or contact the
+maintainers.
+
+有关许可的问题，请在GitHub上打开issue或联系维护者。
