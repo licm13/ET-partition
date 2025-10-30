@@ -25,6 +25,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
+from analysis import PFTScenario, PartitionComparison
+
 
 def example_uwue_method():
     """
@@ -260,6 +262,71 @@ def compare_methods():
     print(f"比较数据保存至 / Comparison data saved to: {csv_path}")
 
 
+def advanced_pft_comparison():
+    """Advanced comparison including synthetic PFT-based stress tests."""
+
+    print("\n" + "=" * 80)
+    print("高级分析：PFT情景对比 / Advanced Analysis: PFT Scenario Comparison")
+    print("=" * 80)
+
+    scenarios = [
+        PFTScenario(
+            name="ENF",
+            canopy_conductance=0.9,
+            vpd_sensitivity=0.6,
+            soil_evap_fraction=0.25,
+            photosynthesis_efficiency=1.2,
+            interception_ratio=0.35,
+            noise_std=0.05,
+            transpiration_bias=1.05,
+        ),
+        PFTScenario(
+            name="DBF",
+            canopy_conductance=0.75,
+            vpd_sensitivity=0.45,
+            soil_evap_fraction=0.35,
+            photosynthesis_efficiency=1.0,
+            interception_ratio=0.25,
+            noise_std=0.07,
+            transpiration_bias=0.95,
+        ),
+        PFTScenario(
+            name="CSH",
+            canopy_conductance=0.55,
+            vpd_sensitivity=0.3,
+            soil_evap_fraction=0.45,
+            photosynthesis_efficiency=0.8,
+            interception_ratio=0.18,
+            noise_std=0.09,
+            transpiration_bias=0.85,
+        ),
+    ]
+
+    comparison = PartitionComparison(scenarios, n_days=120)
+    results = comparison.run()
+    result_df = comparison.results_to_dataframe(results)
+    summary_df = comparison.aggregate_metrics(result_df)
+
+    output_dir = project_root / "outputs" / "advanced_analysis"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    detailed_path = output_dir / "pft_method_diagnostics.csv"
+    summary_path = output_dir / "pft_method_summary.csv"
+
+    result_df.to_csv(detailed_path, index=False)
+    summary_df.to_csv(summary_path, index=False)
+
+    print("详细的情景/方法指标保存至 / Detailed metrics saved to:", detailed_path)
+    print("跨情景汇总保存至 / Scenario summary saved to:", summary_path)
+
+    print("\n跨情景平均RMSE (T, E) / Cross-scenario mean RMSE (T, E):")
+    for _, row in summary_df.iterrows():
+        print(
+            f"  {row['method']}: RMSE_T={row['rmse_T_mean']:.3f}, "
+            f"RMSE_E={row['rmse_E_mean']:.3f}, "
+            f"T/ET_RMSE={row['t_et_ratio_rmse']:.3f}"
+        )
+
 def main():
     """
     主函数：运行所有示例
@@ -277,6 +344,7 @@ def main():
         example_tea_method()
         example_perez_priego_method()
         compare_methods()
+        advanced_pft_comparison()
 
         print("\n" + "="*80)
         print("所有示例运行完成！ / All examples completed!")
