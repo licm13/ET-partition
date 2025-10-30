@@ -170,6 +170,9 @@ python tests/test_all_methods.py
 
 ## 方法详细说明
 
+如需了解算法数学原理以及新增的PFT模拟基准流程，请参阅
+[`docs/partition_methods_math.md`](docs/partition_methods_math.md)。
+
 ### uWUE（潜在水分利用效率）
 
 **原理**：使用分位数回归估算最优条件下（高土壤湿度、降雨后）的潜在水分利用效率。

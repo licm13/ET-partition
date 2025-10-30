@@ -148,6 +148,10 @@ This will run all three methods on the FI-Hyy test site and verify the outputs.
 
 ## Method descriptions
 
+A bilingual deep-dive into the mathematics of each algorithm and the new
+synthetic benchmarking workflow is available in
+[`docs/partition_methods_math.md`](docs/partition_methods_math.md).
+
 ### uWUE (Underlying Water Use Efficiency)
 
 **Principle**: Estimates potential water use efficiency under optimal conditions (high
