@@ -1,4 +1,16 @@
-"""Synthetic data generation and method emulation for ET partition comparison."""
+"""Synthetic data generation and method emulation for ET partition comparison.
+
+This module provides comprehensive tools for generating realistic synthetic flux data
+across different Plant Functional Types (PFTs) and evaluating ET partitioning methods
+under controlled conditions.
+
+Key Components
+--------------
+- PFTScenario: Configuration class defining PFT characteristics
+- Predefined PFT scenarios for common vegetation types
+- Synthetic flux data generation with realistic seasonal and diurnal patterns
+- Method emulators for uWUE, TEA, and Perez-Priego approaches
+"""
 
 from __future__ import annotations
 
@@ -232,9 +244,225 @@ def list_available_methods() -> List[str]:
     return list(_METHOD_EMULATORS.keys())
 
 
+# ==============================================================================
+# Predefined PFT Scenarios / 预定义植物功能型场景
+# ==============================================================================
+
+# Evergreen Needleleaf Forest (ENF) / 常绿针叶林
+# Characteristics: High canopy conductance, moderate VPD sensitivity,
+# low soil evaporation due to dense canopy cover
+PFT_ENF = PFTScenario(
+    name="ENF",
+    canopy_conductance=0.9,
+    vpd_sensitivity=0.6,
+    soil_evap_fraction=0.25,
+    photosynthesis_efficiency=1.2,
+    interception_ratio=0.35,
+    noise_std=0.05,
+    transpiration_bias=1.05,
+)
+
+# Deciduous Broadleaf Forest (DBF) / 落叶阔叶林
+# Characteristics: Moderate canopy conductance, seasonal variation,
+# moderate soil evaporation
+PFT_DBF = PFTScenario(
+    name="DBF",
+    canopy_conductance=0.75,
+    vpd_sensitivity=0.45,
+    soil_evap_fraction=0.35,
+    photosynthesis_efficiency=1.0,
+    interception_ratio=0.25,
+    noise_std=0.07,
+    transpiration_bias=0.95,
+)
+
+# Evergreen Broadleaf Forest (EBF) / 常绿阔叶林
+# Characteristics: High transpiration, low VPD sensitivity (tropical),
+# low soil evaporation
+PFT_EBF = PFTScenario(
+    name="EBF",
+    canopy_conductance=0.95,
+    vpd_sensitivity=0.35,
+    soil_evap_fraction=0.20,
+    photosynthesis_efficiency=1.3,
+    interception_ratio=0.40,
+    noise_std=0.06,
+    transpiration_bias=1.10,
+)
+
+# Mixed Forest (MF) / 混交林
+# Characteristics: Intermediate properties between ENF and DBF
+PFT_MF = PFTScenario(
+    name="MF",
+    canopy_conductance=0.80,
+    vpd_sensitivity=0.50,
+    soil_evap_fraction=0.30,
+    photosynthesis_efficiency=1.1,
+    interception_ratio=0.30,
+    noise_std=0.06,
+    transpiration_bias=1.00,
+)
+
+# Closed Shrubland (CSH) / 密闭灌丛
+# Characteristics: Lower canopy conductance, higher soil evaporation,
+# lower photosynthesis efficiency
+PFT_CSH = PFTScenario(
+    name="CSH",
+    canopy_conductance=0.55,
+    vpd_sensitivity=0.30,
+    soil_evap_fraction=0.45,
+    photosynthesis_efficiency=0.8,
+    interception_ratio=0.18,
+    noise_std=0.09,
+    transpiration_bias=0.85,
+)
+
+# Open Shrubland (OSH) / 开放灌丛
+# Characteristics: Low canopy conductance, high soil evaporation,
+# adapted to dry conditions
+PFT_OSH = PFTScenario(
+    name="OSH",
+    canopy_conductance=0.45,
+    vpd_sensitivity=0.25,
+    soil_evap_fraction=0.55,
+    photosynthesis_efficiency=0.7,
+    interception_ratio=0.12,
+    noise_std=0.10,
+    transpiration_bias=0.80,
+)
+
+# Woody Savannas (WSA) / 木本稀树草原
+# Characteristics: Mixed tree-grass system, high soil evaporation,
+# variable photosynthesis
+PFT_WSA = PFTScenario(
+    name="WSA",
+    canopy_conductance=0.65,
+    vpd_sensitivity=0.40,
+    soil_evap_fraction=0.50,
+    photosynthesis_efficiency=0.9,
+    interception_ratio=0.20,
+    noise_std=0.08,
+    transpiration_bias=0.90,
+)
+
+# Grassland (GRA) / 草地
+# Characteristics: Low canopy height, high soil evaporation,
+# rapid response to precipitation
+PFT_GRA = PFTScenario(
+    name="GRA",
+    canopy_conductance=0.50,
+    vpd_sensitivity=0.35,
+    soil_evap_fraction=0.60,
+    photosynthesis_efficiency=0.75,
+    interception_ratio=0.10,
+    noise_std=0.11,
+    transpiration_bias=0.75,
+)
+
+# Cropland (CRO) / 农田
+# Characteristics: Seasonal management, moderate characteristics,
+# variable depending on crop type
+PFT_CRO = PFTScenario(
+    name="CRO",
+    canopy_conductance=0.70,
+    vpd_sensitivity=0.42,
+    soil_evap_fraction=0.40,
+    photosynthesis_efficiency=1.05,
+    interception_ratio=0.22,
+    noise_std=0.08,
+    transpiration_bias=0.92,
+)
+
+# Wetland (WET) / 湿地
+# Characteristics: High water availability, high evaporation,
+# unique water cycling
+PFT_WET = PFTScenario(
+    name="WET",
+    canopy_conductance=0.85,
+    vpd_sensitivity=0.20,
+    soil_evap_fraction=0.65,
+    photosynthesis_efficiency=0.95,
+    interception_ratio=0.15,
+    noise_std=0.07,
+    transpiration_bias=0.88,
+)
+
+
+# Collection of all predefined scenarios / 所有预定义场景集合
+PREDEFINED_PFT_SCENARIOS = [
+    PFT_ENF,
+    PFT_DBF,
+    PFT_EBF,
+    PFT_MF,
+    PFT_CSH,
+    PFT_OSH,
+    PFT_WSA,
+    PFT_GRA,
+    PFT_CRO,
+    PFT_WET,
+]
+
+
+def get_pft_scenario(name: str) -> PFTScenario:
+    """Retrieve a predefined PFT scenario by name.
+
+    Parameters
+    ----------
+    name : str
+        Name of the PFT scenario (e.g., 'ENF', 'DBF', 'GRA').
+
+    Returns
+    -------
+    PFTScenario
+        The requested PFT scenario configuration.
+
+    Raises
+    ------
+    ValueError
+        If the specified PFT name is not found.
+
+    Examples
+    --------
+    >>> scenario = get_pft_scenario('ENF')
+    >>> print(scenario.name)
+    ENF
+    """
+    for scenario in PREDEFINED_PFT_SCENARIOS:
+        if scenario.name.upper() == name.upper():
+            return scenario
+    available = [s.name for s in PREDEFINED_PFT_SCENARIOS]
+    raise ValueError(
+        f"PFT scenario '{name}' not found. Available: {', '.join(available)}"
+    )
+
+
+def list_pft_scenarios() -> List[str]:
+    """List all available predefined PFT scenarios.
+
+    Returns
+    -------
+    List[str]
+        Names of all predefined PFT scenarios.
+    """
+    return [s.name for s in PREDEFINED_PFT_SCENARIOS]
+
+
 __all__ = [
     "PFTScenario",
     "generate_synthetic_flux_data",
     "run_method_emulators",
     "list_available_methods",
+    "get_pft_scenario",
+    "list_pft_scenarios",
+    "PREDEFINED_PFT_SCENARIOS",
+    "PFT_ENF",
+    "PFT_DBF",
+    "PFT_EBF",
+    "PFT_MF",
+    "PFT_CSH",
+    "PFT_OSH",
+    "PFT_WSA",
+    "PFT_GRA",
+    "PFT_CRO",
+    "PFT_WET",
 ]
