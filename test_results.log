@@ -1,0 +1,93 @@
+2025-10-31 22:09:06,740 - __main__ - INFO - ================================================================================
+2025-10-31 22:09:06,740 - __main__ - INFO - ET蒸散发拆分方法 - 综合测试套件
+2025-10-31 22:09:06,740 - __main__ - INFO - ET Partition Methods - Comprehensive Test Suite
+2025-10-31 22:09:06,740 - __main__ - INFO - ================================================================================
+2025-10-31 22:09:06,741 - __main__ - INFO - 测试开始时间 / Test started at: 2025-10-31 22:09:06
+2025-10-31 22:09:06,741 - __main__ - INFO - 
+2025-10-31 22:09:06,741 - __main__ - INFO - 项目根目录 / Project root: F:\Github\ET-partition
+2025-10-31 22:09:06,741 - __main__ - INFO - 测试数据路径 / Test data path: F:\Github\ET-partition\data\test_site
+2025-10-31 22:09:06,741 - __main__ - INFO - 输出基础路径 / Output base path: F:\Github\ET-partition\outputs\test_run
+2025-10-31 22:09:06,741 - __main__ - INFO - 
+2025-10-31 22:09:06,741 - __main__ - INFO - 检查测试数据 / Checking test data at: F:\Github\ET-partition\data\test_site
+2025-10-31 22:09:06,742 - __main__ - INFO - 找到 1 个站点文件夹 / Found 1 site folder(s)
+2025-10-31 22:09:06,742 - __main__ - INFO -   - FLX_FI-Hyy_FLUXNET2015_FULLSET_2008-2010_1-3
+2025-10-31 22:09:06,742 - __main__ - INFO -     包含 1 个CSV文件 / Contains 1 CSV file(s)
+2025-10-31 22:09:06,743 - __main__ - INFO - 
+2025-10-31 22:09:06,743 - __main__ - INFO - ================================================================================
+2025-10-31 22:09:06,743 - __main__ - INFO - 开始测试方法 / Starting test for method: uWUE
+2025-10-31 22:09:06,743 - __main__ - INFO - ================================================================================
+2025-10-31 22:09:07,662 - __main__ - INFO - 测试完成 / Test completed: uWUE
+2025-10-31 22:09:07,662 - __main__ - INFO - 用时 / Duration: 0.92 seconds
+2025-10-31 22:09:07,662 - __main__ - INFO - 状态 / Status: 失败 / FAILED
+2025-10-31 22:09:07,662 - __main__ - ERROR - 错误信息 / Error: No module named 'sympy'
+2025-10-31 22:09:07,662 - __main__ - INFO - --------------------------------------------------------------------------------
+2025-10-31 22:09:07,662 - __main__ - ERROR - uWUE测试失败 / uWUE test failed
+Traceback (most recent call last):
+  File "F:\Github\ET-partition\tests\test_all_methods.py", line 257, in test_uwue_method
+    from methods.uwue.batch import uWUEBatchProcessor
+  File "F:\Github\ET-partition\methods\uwue\__init__.py", line 3, in <module>
+    from .batch import main as run_batch
+  File "F:\Github\ET-partition\methods\uwue\batch.py", line 22, in <module>
+    from . import bigleaf, zhou
+  File "F:\Github\ET-partition\methods\uwue\bigleaf.py", line 17, in <module>
+    import sympy
+ModuleNotFoundError: No module named 'sympy'
+2025-10-31 22:09:07,663 - __main__ - INFO - ================================================================================
+2025-10-31 22:09:07,664 - __main__ - INFO - 开始测试方法 / Starting test for method: TEA
+2025-10-31 22:09:07,664 - __main__ - INFO - ================================================================================
+2025-10-31 22:09:07,670 - __main__ - INFO - 测试完成 / Test completed: TEA
+2025-10-31 22:09:07,670 - __main__ - INFO - 用时 / Duration: 0.01 seconds
+2025-10-31 22:09:07,671 - __main__ - INFO - 状态 / Status: 失败 / FAILED
+2025-10-31 22:09:07,671 - __main__ - ERROR - 错误信息 / Error: No module named 'TEA'
+2025-10-31 22:09:07,671 - __main__ - INFO - --------------------------------------------------------------------------------
+2025-10-31 22:09:07,671 - __main__ - ERROR - TEA测试失败 / TEA test failed
+Traceback (most recent call last):
+  File "F:\Github\ET-partition\tests\test_all_methods.py", line 308, in test_tea_method
+    from methods.tea.batch import main as tea_batch_main
+  File "F:\Github\ET-partition\methods\tea\__init__.py", line 3, in <module>
+    from .batch import main as run_batch
+  File "F:\Github\ET-partition\methods\tea\batch.py", line 12, in <module>
+    from .TEA.TEA import simplePartition
+  File "F:\Github\ET-partition\methods\tea\TEA\__init__.py", line 1, in <module>
+    from .PreProc import preprocess, build_dataset
+  File "F:\Github\ET-partition\methods\tea\TEA\PreProc.py", line 15, in <module>
+    import TEA.DWCI as DWCI
+ModuleNotFoundError: No module named 'TEA'
+2025-10-31 22:09:07,672 - __main__ - INFO - ================================================================================
+2025-10-31 22:09:07,672 - __main__ - INFO - 开始测试方法 / Starting test for method: Perez-Priego
+2025-10-31 22:09:07,672 - __main__ - INFO - ================================================================================
+2025-10-31 22:09:07,677 - __main__ - INFO - 测试完成 / Test completed: Perez-Priego
+2025-10-31 22:09:07,677 - __main__ - INFO - 用时 / Duration: 0.01 seconds
+2025-10-31 22:09:07,677 - __main__ - INFO - 状态 / Status: 失败 / FAILED
+2025-10-31 22:09:07,677 - __main__ - ERROR - 错误信息 / Error: No module named 'emcee'
+2025-10-31 22:09:07,677 - __main__ - INFO - --------------------------------------------------------------------------------
+2025-10-31 22:09:07,677 - __main__ - ERROR - Perez-Priego测试失败 / Perez-Priego test failed
+Traceback (most recent call last):
+  File "F:\Github\ET-partition\tests\test_all_methods.py", line 357, in test_perez_priego_method
+    from methods.perez_priego.batch import main as pp_batch_main
+  File "F:\Github\ET-partition\methods\perez_priego\__init__.py", line 3, in <module>
+    from .batch import main as run_batch
+  File "F:\Github\ET-partition\methods\perez_priego\batch.py", line 14, in <module>
+    from . import et_partitioning_functions as etp
+  File "F:\Github\ET-partition\methods\perez_priego\et_partitioning_functions.py", line 8, in <module>
+    import emcee
+ModuleNotFoundError: No module named 'emcee'
+2025-10-31 22:09:07,678 - __main__ - INFO - 
+================================================================================
+2025-10-31 22:09:07,678 - __main__ - INFO - 测试总结 / TEST SUMMARY
+2025-10-31 22:09:07,678 - __main__ - INFO - ================================================================================
+2025-10-31 22:09:07,678 - __main__ - INFO - 总测试数 / Total tests: 3
+2025-10-31 22:09:07,678 - __main__ - INFO - 通过 / Passed: 0
+2025-10-31 22:09:07,678 - __main__ - INFO - 失败 / Failed: 3
+2025-10-31 22:09:07,678 - __main__ - INFO - 
+2025-10-31 22:09:07,708 - __main__ - ERROR -   错误 / Error: No module named 'sympy'
+2025-10-31 22:09:07,708 - __main__ - INFO - 
+2025-10-31 22:09:07,709 - __main__ - ERROR -   错误 / Error: No module named 'TEA'
+2025-10-31 22:09:07,709 - __main__ - INFO - 
+2025-10-31 22:09:07,710 - __main__ - ERROR -   错误 / Error: No module named 'emcee'
+2025-10-31 22:09:07,710 - __main__ - INFO - 
+2025-10-31 22:09:07,711 - __main__ - INFO - ================================================================================
+2025-10-31 22:09:07,711 - __main__ - ERROR - 3 个测试失败 / 3 test(s) FAILED
+2025-10-31 22:09:07,711 - __main__ - INFO - ================================================================================
+2025-10-31 22:09:07,711 - __main__ - INFO - 测试结束时间 / Test finished at: 2025-10-31 22:09:07
+2025-10-31 22:09:07,711 - __main__ - INFO - 测试日志已保存至 / Test log saved to: test_results.log
