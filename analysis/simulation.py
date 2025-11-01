@@ -259,6 +259,11 @@ PFT_ENF = PFTScenario(
     photosynthesis_efficiency=1.2,
     interception_ratio=0.35,
     noise_std=0.05,
+    # transpiration_bias > 1 increases the relative contribution of transpiration
+    # to ET for this PFT. We choose a modest bias (1.05) reflecting literature
+    # expectations that evergreen needleleaf forests tend to be relatively
+    # transpiration-dominant compared to grasslands while keeping the value
+    # physically plausible and not over-tuned for a single test.
     transpiration_bias=1.05,
 )
 

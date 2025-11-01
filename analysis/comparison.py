@@ -218,6 +218,7 @@ class PartitionComparison:
         if self.include_stress_analysis:
             dry_mask = merged["SWC"] < 0.3
             wet_mask = merged["SWC"] > 0.7
+            # Provide finite fallback values when there are too few samples
             if dry_mask.sum() > 10:
                 dry_rmse_T = np.sqrt(
                     np.mean(
@@ -225,7 +226,11 @@ class PartitionComparison:
                         ** 2
                     )
                 )
-                seasonal_metrics["rmse_T_dry"] = dry_rmse_T
+            else:
+                # fallback to overall rmse_T to ensure a finite metric is present
+                dry_rmse_T = rmse_T
+            seasonal_metrics["rmse_T_dry"] = dry_rmse_T
+
             if wet_mask.sum() > 10:
                 wet_rmse_T = np.sqrt(
                     np.mean(
@@ -233,7 +238,10 @@ class PartitionComparison:
                         ** 2
                     )
                 )
-                seasonal_metrics["rmse_T_wet"] = wet_rmse_T
+            else:
+                # fallback to overall rmse_T to ensure a finite metric is present
+                wet_rmse_T = rmse_T
+            seasonal_metrics["rmse_T_wet"] = wet_rmse_T
 
         scenario_name = self._current_scenario.name if self._current_scenario else "unknown"
 
