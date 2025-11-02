@@ -5,7 +5,9 @@ from __future__ import annotations
 import argparse
 import re
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Tuple
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import multiprocessing
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -198,6 +200,17 @@ def main(argv: Optional[Iterable[str]] = None) -> None:
         default=0.5,
         help="Fallback site altitude in kilometres when metadata are missing.",
     )
+    parser.add_argument(
+        "--parallel",
+        action="store_true",
+        help="Enable parallel processing of sites.",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=None,
+        help="Number of parallel workers (default: number of CPU cores).",
+    )
 
     args = parser.parse_args(args=list(argv) if argv is not None else None)
 
@@ -210,6 +223,8 @@ def main(argv: Optional[Iterable[str]] = None) -> None:
     print(f"Starting batch process: {args.base_path}")
     print("=" * 60)
 
+    # Collect all site files to process
+    site_files = []
     for folder_path in iter_site_folders(args.base_path, FOLDER_PATTERN):
         csv_filename = (
             folder_path.name.replace("_FLUXNET2015_FULLSET_", "_FLUXNET2015_FULLSET_HH_")
@@ -219,16 +234,73 @@ def main(argv: Optional[Iterable[str]] = None) -> None:
         if not csv_filepath.exists():
             print(f" -> CSV not found for folder: {folder_path.name}")
             continue
-        try:
-            process_site_file(
-                csv_filepath,
-                args.output_path,
-                site_alt_df,
-                args.default_altitude,
-                missing_altitude_sites,
-            )
-        except Exception as exc:  # pragma: no cover - rich CLI feedback
-            print(f"[Error processing {folder_path.name}]: {exc}")
+        site_files.append(csv_filepath)
+
+    print(f"Found {len(site_files)} site files to process")
+
+    if args.parallel:
+        # Parallel processing
+        workers = args.workers if args.workers else multiprocessing.cpu_count()
+        print(f"Using parallel processing with {workers} workers")
+
+        # Helper function for parallel execution
+        def process_wrapper(csv_filepath: Path) -> Tuple[bool, Optional[str]]:
+            """Wrapper to handle exceptions in parallel processing"""
+            try:
+                process_site_file(
+                    csv_filepath,
+                    args.output_path,
+                    site_alt_df,
+                    args.default_altitude,
+                    missing_altitude_sites,
+                )
+                return True, None
+            except Exception as exc:
+                return False, str(exc)
+
+        with ProcessPoolExecutor(max_workers=workers) as executor:
+            # Submit all tasks
+            future_to_file = {
+                executor.submit(process_wrapper, csv_file): csv_file
+                for csv_file in site_files
+            }
+
+            # Process completed tasks
+            completed = 0
+            total = len(site_files)
+            errors = []
+
+            for future in as_completed(future_to_file):
+                csv_filepath = future_to_file[future]
+                completed += 1
+
+                try:
+                    success, error_msg = future.result()
+                    if success:
+                        print(f"Progress: {completed}/{total} ({completed/total*100:.1f}%)")
+                    else:
+                        errors.append((csv_filepath.name, error_msg))
+                        print(f"[Error processing {csv_filepath.name}]: {error_msg}")
+                except Exception as e:
+                    errors.append((csv_filepath.name, str(e)))
+                    print(f"[Exception processing {csv_filepath.name}]: {e}")
+
+            if errors:
+                print(f"\n{len(errors)} files had errors during processing")
+
+    else:
+        # Serial processing
+        for csv_filepath in site_files:
+            try:
+                process_site_file(
+                    csv_filepath,
+                    args.output_path,
+                    site_alt_df,
+                    args.default_altitude,
+                    missing_altitude_sites,
+                )
+            except Exception as exc:  # pragma: no cover - rich CLI feedback
+                print(f"[Error processing {csv_filepath.name}]: {exc}")
 
     if missing_altitude_sites:
         missing_path = args.output_path / "missing_altitude_sites.csv"
