@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  et-partition:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: et-partition:latest
+    container_name: et-partition
+    volumes:
+      # Mount data directory for input
+      - ./data:/app/data:ro
+      # Mount outputs directory for results
+      - ./outputs:/app/outputs:rw
+      # Optionally mount code for development
+      # - .:/app:rw
+    environment:
+      - PYTHONUNBUFFERED=1
+      - MPLBACKEND=Agg
+    # Override default command as needed
+    # command: python examples/basic_usage.py
+
+  # Example: Run batch processing for uWUE method
+  uwue-batch:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: et-partition:latest
+    volumes:
+      - ./data:/app/data:ro
+      - ./outputs:/app/outputs:rw
+    command: python -m methods.uwue.batch --base-path /app/data/test_site --output-path /app/outputs/uwue
+
+  # Example: Run batch processing for TEA method
+  tea-batch:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: et-partition:latest
+    volumes:
+      - ./data:/app/data:ro
+      - ./outputs:/app/outputs:rw
+    command: python -m methods.tea.batch --base-path /app/data/test_site --output-path /app/outputs/tea
+
+  # Example: Run batch processing for Perez-Priego method
+  perez-priego-batch:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: et-partition:latest
+    volumes:
+      - ./data:/app/data:ro
+      - ./outputs:/app/outputs:rw
+    command: python -m methods.perez_priego.batch --base-path /app/data/test_site --output-path /app/outputs/perez_priego
