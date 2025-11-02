@@ -312,13 +312,15 @@ def test_tea_method(base_path: Path, output_path: Path) -> TestResult:
 
         # Prepare arguments (simulate command line args)
         class Args:
-            base_path = str(base_path)
-            output_path = str(output_path)
-            pattern = r"FLX_.*_FLUXNET.*"
+            def __init__(self):
+                self.base_path = str(base_path)
+                self.output_path = str(output_path)
+                self.pattern = r"FLX_.*_FLUXNET.*"
 
         # Run processing
         logger.info("运行TEA处理 / Running TEA processing")
-        tea_batch_main(Args())
+        args = Args()
+        tea_batch_main(args)
 
         # Validate outputs
         validate_output(
@@ -361,14 +363,22 @@ def test_perez_priego_method(base_path: Path, output_path: Path) -> TestResult:
 
         # Prepare arguments (simulate command line args)
         class Args:
-            base_path = str(base_path)
-            output_path = str(output_path)
-            site_metadata = None  # No metadata file, will use default altitude
-            default_altitude = 0.5  # 500m default altitude
+            def __init__(self):
+                self.base_path = str(base_path)
+                self.output_path = str(output_path)
+                self.site_metadata = None  # No metadata file, will use default altitude
+                self.default_altitude = 0.5  # 500m default altitude
 
         # Run processing
         logger.info("运行Perez-Priego处理 / Running Perez-Priego processing")
-        pp_batch_main(Args())
+        args = Args()
+        # Convert Args object to command line arguments
+        argv = [
+            "--base-path", args.base_path,
+            "--output-path", args.output_path,
+            "--default-altitude", str(args.default_altitude)
+        ]
+        pp_batch_main(argv)
 
         # Validate outputs
         validate_output(

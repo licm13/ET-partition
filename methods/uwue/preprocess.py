@@ -3,12 +3,17 @@ import numpy as np
 import json
 from datetime import datetime
 import warnings
+import os
+from pathlib import Path
 
-with open('BerkeleyConversion.json') as f:
+# Get the directory where this module is located
+_module_dir = Path(__file__).parent
+
+with open(_module_dir / 'BerkeleyConversion.json') as f:
     BerkeleyConversion = json.load(f)
-with open('Units.json') as f:
+with open(_module_dir / 'Units.json') as f:
     Units = json.load(f)
-with open('LongNames.json') as f:
+with open(_module_dir / 'LongNames.json') as f:
     LongNames = json.load(f)
 
 def is_number_tryexcept(s):

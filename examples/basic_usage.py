@@ -38,7 +38,14 @@ def example_uwue_method():
     print("示例1：uWUE方法 / Example 1: uWUE Method")
     print("="*80)
 
-    from methods.uwue.batch import uWUEBatchProcessor
+    try:
+        from methods.uwue.batch import uWUEBatchProcessor
+    except ImportError as e:
+        print(f"跳过uWUE示例 - 缺少依赖: {e}")
+        print(f"Skipping uWUE example - missing dependency: {e}")
+        print("请安装缺少的包或运行: pip install -e .")
+        print("Please install missing packages or run: pip install -e .")
+        return
 
     # 设置路径 / Setup paths
     base_path = project_root / "data" / "test_site"
@@ -62,6 +69,16 @@ def example_uwue_method():
         result = pd.read_csv(output_files[0])
         print(f"\n结果预览 / Results preview ({output_files[0].name}):")
         print(result.head())
+        
+        # uWUE 输出列名映射 / uWUE output column mapping
+        if 'zhou_T' in result.columns:
+            result['T'] = result['zhou_T']  # 蒸腾量 Transpiration
+        if 'ET' in result.columns:
+            result['E'] = result['ET'] - result.get('T', 0)  # 蒸发量 = ET - T
+            
+        # 计算T/ET比率 / Calculate T/ET ratio
+        result['T_ET_ratio'] = result['T'] / result['ET'].replace(0, np.nan)
+        
         print(f"\n蒸腾平均值 / Mean transpiration: {result['T'].mean():.2f} mm/day")
         print(f"蒸发平均值 / Mean evaporation: {result['E'].mean():.2f} mm/day")
         print(f"T/ET比率 / T/ET ratio: {result['T_ET_ratio'].mean():.2f}")
@@ -79,7 +96,14 @@ def example_tea_method():
     print("示例2：TEA方法 / Example 2: TEA Method")
     print("="*80)
 
-    from methods.tea.batch import main as tea_main
+    try:
+        from methods.tea.batch import main as tea_main
+    except ImportError as e:
+        print(f"跳过TEA示例 - 缺少依赖: {e}")
+        print(f"Skipping TEA example - missing dependency: {e}")
+        print("请安装缺少的包或运行: pip install -e .")
+        print("Please install missing packages or run: pip install -e .")
+        return
 
     # 设置路径 / Setup paths
     base_path = project_root / "data" / "test_site"
@@ -123,7 +147,14 @@ def example_perez_priego_method():
     print("示例3：Perez-Priego方法 / Example 3: Perez-Priego Method")
     print("="*80)
 
-    from methods.perez_priego.batch import main as pp_main
+    try:
+        from methods.perez_priego.batch import main as pp_main
+    except ImportError as e:
+        print(f"跳过Perez-Priego示例 - 缺少依赖: {e}")
+        print(f"Skipping Perez-Priego example - missing dependency: {e}")
+        print("请安装缺少的包或运行: pip install -e .")
+        print("Please install missing packages or run: pip install -e .")
+        return
 
     # 设置路径 / Setup paths
     base_path = project_root / "data" / "test_site"

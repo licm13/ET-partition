@@ -12,7 +12,7 @@ from scipy.ndimage.filters import gaussian_filter
 
 from .CSWI import CSWI
 from .DiurnalCentroid import DiurnalCentroid
-import TEA.DWCI as DWCI
+from . import DWCI
 
 
 def tempFlag(Tair):
