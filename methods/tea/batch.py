@@ -6,6 +6,8 @@ import argparse
 import re
 from pathlib import Path
 from typing import Iterable, Optional
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import multiprocessing
 
 import pandas as pd
 
@@ -147,6 +149,17 @@ def main(argv: Optional[Iterable[str]] = None) -> None:
         default=DEFAULT_PATTERN.pattern,
         help="Regular expression used to match site folder names.",
     )
+    parser.add_argument(
+        "--parallel",
+        action="store_true",
+        help="Enable parallel processing of sites.",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=None,
+        help="Number of parallel workers (default: number of CPU cores).",
+    )
 
     args = parser.parse_args(args=list(argv) if argv is not None else None)
     args.output_path.mkdir(parents=True, exist_ok=True)
@@ -156,8 +169,40 @@ def main(argv: Optional[Iterable[str]] = None) -> None:
     print(f"Scanning directory: {args.base_path}")
     print(f"Output directory:  {args.output_path}")
 
-    for folder_path in iter_site_folders(args.base_path, folder_pattern):
-        process_site_folder(folder_path, args.output_path)
+    # Collect all folders
+    site_folders = list(iter_site_folders(args.base_path, folder_pattern))
+    print(f"Found {len(site_folders)} site folders")
+
+    if args.parallel:
+        # Parallel processing
+        workers = args.workers if args.workers else multiprocessing.cpu_count()
+        print(f"Using parallel processing with {workers} workers")
+
+        with ProcessPoolExecutor(max_workers=workers) as executor:
+            # Submit all tasks
+            future_to_folder = {
+                executor.submit(process_site_folder, folder, args.output_path): folder
+                for folder in site_folders
+            }
+
+            # Process completed tasks
+            completed = 0
+            total = len(site_folders)
+
+            for future in as_completed(future_to_folder):
+                folder_path = future_to_folder[future]
+                completed += 1
+
+                try:
+                    future.result()
+                    print(f"Progress: {completed}/{total} ({completed/total*100:.1f}%)")
+                except Exception as e:
+                    print(f"Error processing {folder_path.name}: {e}")
+
+    else:
+        # Serial processing
+        for folder_path in site_folders:
+            process_site_folder(folder_path, args.output_path)
 
     print("--- Processing complete ---")
 

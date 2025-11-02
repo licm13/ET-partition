@@ -10,6 +10,8 @@ from datetime import datetime
 from pathlib import Path
 from time import time
 from typing import Iterable, Optional
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import multiprocessing
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
@@ -418,34 +420,86 @@ class uWUEBatchProcessor:
         
         self.logger.info(f"📄 总结报告已保存: {report_file}")
     
-    def run(self):
-        """运行批处理程序"""
+    def run(self, parallel: bool = False, workers: Optional[int] = None):
+        """
+        运行批处理程序
+
+        参数:
+        - parallel: 是否使用并行处理
+        - workers: 并行工作进程数 (None = 使用CPU核心数)
+        """
         self.print_header()
-        
+
         # 扫描目录
         valid_folders = self.scan_directories()
-        
+
         if not valid_folders:
             self.logger.warning("未找到符合条件的文件夹，程序结束")
             return
-        
+
+        if parallel:
+            self._run_parallel(valid_folders, workers)
+        else:
+            self._run_serial(valid_folders)
+
+        # 生成总结报告
+        self.generate_summary_report()
+
+        self.logger.info("\n🎉 所有处理完成!")
+
+    def _run_serial(self, valid_folders):
+        """串行处理所有站点"""
         # 处理每个站点
         for i, folder_path in enumerate(valid_folders, 1):
             self.logger.info(f"\n{'='*60}")
             self.logger.info(f"处理进度: {i}/{len(valid_folders)} ({i/len(valid_folders)*100:.1f}%)")
             self.logger.info(f"当前文件夹: {folder_path.name}")
-            
+
             success, sitename, proc_time, results = self.process_single_site(folder_path)
-            
+
             if success:
                 self.logger.info(f"✅ 成功处理站点 {sitename}")
             else:
                 self.logger.error(f"❌ 处理失败: {folder_path.name}")
-        
-        # 生成总结报告
-        self.generate_summary_report()
-        
-        self.logger.info("\n🎉 所有处理完成!")
+
+    def _run_parallel(self, valid_folders, workers: Optional[int] = None):
+        """并行处理所有站点"""
+        if workers is None:
+            workers = multiprocessing.cpu_count()
+
+        self.logger.info(f"\n🚀 使用并行处理模式，工作进程数: {workers}")
+        self.logger.info(f"   Parallel processing with {workers} workers")
+
+        # Use ProcessPoolExecutor for parallel processing
+        with ProcessPoolExecutor(max_workers=workers) as executor:
+            # Submit all tasks
+            future_to_folder = {
+                executor.submit(self.process_single_site, folder): folder
+                for folder in valid_folders
+            }
+
+            # Process completed tasks
+            completed = 0
+            total = len(valid_folders)
+
+            for future in as_completed(future_to_folder):
+                folder_path = future_to_folder[future]
+                completed += 1
+
+                try:
+                    success, sitename, proc_time, results = future.result()
+
+                    self.logger.info(f"\n{'='*60}")
+                    self.logger.info(f"处理进度: {completed}/{total} ({completed/total*100:.1f}%)")
+
+                    if success:
+                        self.logger.info(f"✅ 成功处理站点 {sitename} (耗时: {proc_time:.2f}秒)")
+                    else:
+                        self.logger.error(f"❌ 处理失败: {folder_path.name}")
+
+                except Exception as e:
+                    self.logger.error(f"❌ 处理站点时发生异常 {folder_path.name}: {e}")
+                    self.processing_stats['failed_processing'] += 1
 
 
 def main(argv: Optional[Iterable[str]] = None) -> None:
@@ -479,6 +533,17 @@ def main(argv: Optional[Iterable[str]] = None) -> None:
         default=DEFAULT_PATTERN.pattern,
         help="Regular expression used to match site folder names.",
     )
+    parser.add_argument(
+        "--parallel",
+        action="store_true",
+        help="Enable parallel processing of sites.",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=None,
+        help="Number of parallel workers (default: number of CPU cores).",
+    )
 
     args = parser.parse_args(args=list(argv) if argv is not None else None)
 
@@ -488,7 +553,7 @@ def main(argv: Optional[Iterable[str]] = None) -> None:
         create_plots=not args.no_plots,
         folder_pattern=re.compile(args.pattern),
     )
-    processor.run()
+    processor.run(parallel=args.parallel, workers=args.workers)
 
 
 if __name__ == "__main__":  # pragma: no cover - CLI entry point
