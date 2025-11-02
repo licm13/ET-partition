@@ -1,75 +1,77 @@
-2025-11-02 09:56:39,959 - __main__ - INFO - ================================================================================
-2025-11-02 09:56:39,959 - __main__ - INFO - ET蒸散发拆分方法 - 综合测试套件
-2025-11-02 09:56:39,959 - __main__ - INFO - ET Partition Methods - Comprehensive Test Suite
-2025-11-02 09:56:39,959 - __main__ - INFO - ================================================================================
-2025-11-02 09:56:39,960 - __main__ - INFO - 测试开始时间 / Test started at: 2025-11-02 09:56:39
-2025-11-02 09:56:39,960 - __main__ - INFO - 
-2025-11-02 09:56:39,960 - __main__ - INFO - 项目根目录 / Project root: D:\Github\ET-partition
-2025-11-02 09:56:39,960 - __main__ - INFO - 测试数据路径 / Test data path: D:\Github\ET-partition\data\test_site
-2025-11-02 09:56:39,960 - __main__ - INFO - 输出基础路径 / Output base path: D:\Github\ET-partition\outputs\test_run
-2025-11-02 09:56:39,960 - __main__ - INFO - 
-2025-11-02 09:56:39,960 - __main__ - INFO - 检查测试数据 / Checking test data at: D:\Github\ET-partition\data\test_site
-2025-11-02 09:56:39,960 - __main__ - INFO - 找到 1 个站点文件夹 / Found 1 site folder(s)
-2025-11-02 09:56:39,960 - __main__ - INFO -   - FLX_FI-Hyy_FLUXNET2015_FULLSET_2008-2010_1-3
-2025-11-02 09:56:39,961 - __main__ - INFO -     包含 1 个CSV文件 / Contains 1 CSV file(s)
-2025-11-02 09:56:39,961 - __main__ - INFO - 
-2025-11-02 09:56:39,961 - __main__ - INFO - ================================================================================
-2025-11-02 09:56:39,961 - __main__ - INFO - 开始测试方法 / Starting test for method: uWUE
-2025-11-02 09:56:39,961 - __main__ - INFO - ================================================================================
-2025-11-02 09:56:40,838 - __main__ - INFO - 初始化uWUE批处理器 / Initializing uWUE batch processor
-2025-11-02 09:56:40,839 - __main__ - INFO - 运行uWUE处理 / Running uWUE processing
-2025-11-02 09:56:40,839 - methods.uwue.batch - INFO - uWUE 批处理程序启动
-2025-11-02 09:56:40,839 - methods.uwue.batch - INFO - 数据源路径: D:\Github\ET-partition\data\test_site
-2025-11-02 09:56:40,839 - methods.uwue.batch - INFO - 输出路径: D:\Github\ET-partition\outputs\test_run\uwue
-2025-11-02 09:56:40,840 - methods.uwue.batch - INFO - 发现 1 个符合条件的文件夹
-2025-11-02 09:56:40,840 - methods.uwue.batch - INFO - 
+2025-11-02 10:08:15,970 - __main__ - INFO - ================================================================================
+2025-11-02 10:08:15,970 - __main__ - INFO - ET蒸散发拆分方法 - 综合测试套件
+2025-11-02 10:08:15,970 - __main__ - INFO - ET Partition Methods - Comprehensive Test Suite
+2025-11-02 10:08:15,970 - __main__ - INFO - ================================================================================
+2025-11-02 10:08:15,970 - __main__ - INFO - 测试开始时间 / Test started at: 2025-11-02 10:08:15
+2025-11-02 10:08:15,970 - __main__ - INFO - 
+2025-11-02 10:08:15,971 - __main__ - INFO - 项目根目录 / Project root: D:\Github\ET-partition
+2025-11-02 10:08:15,971 - __main__ - INFO - 测试数据路径 / Test data path: D:\Github\ET-partition\data\test_site
+2025-11-02 10:08:15,971 - __main__ - INFO - 输出基础路径 / Output base path: D:\Github\ET-partition\outputs\test_run
+2025-11-02 10:08:15,971 - __main__ - INFO - 
+2025-11-02 10:08:15,971 - __main__ - INFO - 检查测试数据 / Checking test data at: D:\Github\ET-partition\data\test_site
+2025-11-02 10:08:15,971 - __main__ - INFO - 找到 1 个站点文件夹 / Found 1 site folder(s)
+2025-11-02 10:08:15,971 - __main__ - INFO -   - FLX_FI-Hyy_FLUXNET2015_FULLSET_2008-2010_1-3
+2025-11-02 10:08:15,972 - __main__ - INFO -     包含 1 个CSV文件 / Contains 1 CSV file(s)
+2025-11-02 10:08:15,972 - __main__ - INFO - 
+2025-11-02 10:08:15,972 - __main__ - INFO - ================================================================================
+2025-11-02 10:08:15,972 - __main__ - INFO - 开始测试方法 / Starting test for method: uWUE
+2025-11-02 10:08:15,972 - __main__ - INFO - ================================================================================
+2025-11-02 10:08:17,216 - __main__ - INFO - 初始化uWUE批处理器 / Initializing uWUE batch processor
+2025-11-02 10:08:17,216 - __main__ - INFO - 运行uWUE处理 / Running uWUE processing
+2025-11-02 10:08:17,216 - methods.uwue.batch - INFO - uWUE 批处理程序启动
+2025-11-02 10:08:17,216 - methods.uwue.batch - INFO - 数据源路径: D:\Github\ET-partition\data\test_site
+2025-11-02 10:08:17,216 - methods.uwue.batch - INFO - 输出路径: D:\Github\ET-partition\outputs\test_run\uwue
+2025-11-02 10:08:17,217 - methods.uwue.batch - INFO - 发现 1 个符合条件的文件夹
+2025-11-02 10:08:17,217 - methods.uwue.batch - INFO - 
 ============================================================
-2025-11-02 09:56:40,840 - methods.uwue.batch - INFO - 处理进度: 1/1 (100.0%)
-2025-11-02 09:56:40,840 - methods.uwue.batch - INFO - 当前文件夹: FLX_FI-Hyy_FLUXNET2015_FULLSET_2008-2010_1-3
-2025-11-02 09:56:41,424 - methods.uwue.batch - INFO -     - 2008 年: uWUEp = 734.0544
-2025-11-02 09:56:41,436 - methods.uwue.batch - INFO -     - 2009 年: uWUEp = 809.1584
-2025-11-02 09:56:41,448 - methods.uwue.batch - INFO -     - 2010 年: uWUEp = 741.3338
-2025-11-02 09:56:42,079 - __main__ - INFO - 验证输出文件 / Validating outputs in: D:\Github\ET-partition\outputs\test_run\uwue
-2025-11-02 09:56:42,080 - __main__ - INFO - 找到 8 个输出文件 / Found 8 output file(s)
-2025-11-02 09:56:42,080 - __main__ - INFO - 找到输出文件 / Found output file: D:\Github\ET-partition\outputs\test_run\uwue\FI-Hyy_uWUE_output.csv
-2025-11-02 09:56:42,090 - __main__ - INFO -   - FI-Hyy_uWUE_output.csv: 1096 行, 4 列
-2025-11-02 09:56:42,090 - __main__ - INFO -     1096 rows, 4 columns
-2025-11-02 09:56:42,091 - __main__ - INFO -     ET: 范围 / range = [-0.1814, 4.3781], 均值 / mean = 0.9882
-2025-11-02 09:56:42,091 - __main__ - INFO - 找到输出文件 / Found output file: D:\Github\ET-partition\outputs\test_run\uwue\FI-Hyy_uWUE_output.nc
-2025-11-02 09:56:42,091 - __main__ - INFO - 找到输出文件 / Found output file: D:\Github\ET-partition\outputs\test_run\uwue\plots\FI-Hyy_uWUE_analysis.png
-2025-11-02 09:56:42,091 - __main__ - INFO - 找到输出文件 / Found output file: D:\Github\ET-partition\outputs\test_run\uwue\uwue_processing_20251102_095044.log
-2025-11-02 09:56:42,092 - __main__ - WARNING - 警告 / Warning: 输出文件为空 / Output file is empty: uwue_processing_20251102_095044.log
-2025-11-02 09:56:42,092 - __main__ - INFO - 找到输出文件 / Found output file: D:\Github\ET-partition\outputs\test_run\uwue\uwue_processing_20251102_095131.log
-2025-11-02 09:56:42,092 - __main__ - WARNING - 警告 / Warning: 输出文件为空 / Output file is empty: uwue_processing_20251102_095131.log
-2025-11-02 09:56:42,092 - __main__ - INFO - 找到输出文件 / Found output file: D:\Github\ET-partition\outputs\test_run\uwue\uwue_processing_20251102_095326.log
-2025-11-02 09:56:42,092 - __main__ - WARNING - 警告 / Warning: 输出文件为空 / Output file is empty: uwue_processing_20251102_095326.log
-2025-11-02 09:56:42,092 - __main__ - INFO - 找到输出文件 / Found output file: D:\Github\ET-partition\outputs\test_run\uwue\uwue_processing_20251102_095554.log
-2025-11-02 09:56:42,092 - __main__ - WARNING - 警告 / Warning: 输出文件为空 / Output file is empty: uwue_processing_20251102_095554.log
-2025-11-02 09:56:42,092 - __main__ - INFO - 找到输出文件 / Found output file: D:\Github\ET-partition\outputs\test_run\uwue\uwue_processing_20251102_095640.log
-2025-11-02 09:56:42,092 - __main__ - WARNING - 警告 / Warning: 输出文件为空 / Output file is empty: uwue_processing_20251102_095640.log
-2025-11-02 09:56:42,092 - __main__ - INFO - 测试完成 / Test completed: uWUE
-2025-11-02 09:56:42,092 - __main__ - INFO - 用时 / Duration: 2.13 seconds
-2025-11-02 09:56:42,093 - __main__ - INFO - 状态 / Status: 成功 / SUCCESS
-2025-11-02 09:56:42,093 - __main__ - INFO - --------------------------------------------------------------------------------
-2025-11-02 09:56:42,093 - __main__ - INFO - ================================================================================
-2025-11-02 09:56:42,093 - __main__ - INFO - 开始测试方法 / Starting test for method: TEA
-2025-11-02 09:56:42,093 - __main__ - INFO - ================================================================================
-2025-11-02 09:56:42,330 - __main__ - INFO - 运行TEA处理 / Running TEA processing
-2025-11-02 09:56:42,331 - __main__ - INFO - 测试完成 / Test completed: TEA
-2025-11-02 09:56:42,331 - __main__ - INFO - 用时 / Duration: 0.24 seconds
-2025-11-02 09:56:42,331 - __main__ - INFO - 状态 / Status: 失败 / FAILED
-2025-11-02 09:56:42,331 - __main__ - ERROR - 错误信息 / Error: 'Args' object is not iterable
-2025-11-02 09:56:42,331 - __main__ - INFO - --------------------------------------------------------------------------------
-2025-11-02 09:56:42,331 - __main__ - ERROR - TEA测试失败 / TEA test failed
+2025-11-02 10:08:17,217 - methods.uwue.batch - INFO - 处理进度: 1/1 (100.0%)
+2025-11-02 10:08:17,217 - methods.uwue.batch - INFO - 当前文件夹: FLX_FI-Hyy_FLUXNET2015_FULLSET_2008-2010_1-3
+2025-11-02 10:08:17,945 - methods.uwue.batch - INFO -     - 2008 年: uWUEp = 734.0544
+2025-11-02 10:08:17,958 - methods.uwue.batch - INFO -     - 2009 年: uWUEp = 809.1584
+2025-11-02 10:08:17,971 - methods.uwue.batch - INFO -     - 2010 年: uWUEp = 741.3338
+2025-11-02 10:08:18,609 - __main__ - INFO - 验证输出文件 / Validating outputs in: D:\Github\ET-partition\outputs\test_run\uwue
+2025-11-02 10:08:18,610 - __main__ - INFO - 找到 9 个输出文件 / Found 9 output file(s)
+2025-11-02 10:08:18,610 - __main__ - INFO - 找到输出文件 / Found output file: D:\Github\ET-partition\outputs\test_run\uwue\FI-Hyy_uWUE_output.csv
+2025-11-02 10:08:18,620 - __main__ - INFO -   - FI-Hyy_uWUE_output.csv: 1096 行, 4 列
+2025-11-02 10:08:18,620 - __main__ - INFO -     1096 rows, 4 columns
+2025-11-02 10:08:18,622 - __main__ - INFO -     ET: 范围 / range = [-0.1814, 4.3781], 均值 / mean = 0.9882
+2025-11-02 10:08:18,622 - __main__ - INFO - 找到输出文件 / Found output file: D:\Github\ET-partition\outputs\test_run\uwue\FI-Hyy_uWUE_output.nc
+2025-11-02 10:08:18,622 - __main__ - INFO - 找到输出文件 / Found output file: D:\Github\ET-partition\outputs\test_run\uwue\plots\FI-Hyy_uWUE_analysis.png
+2025-11-02 10:08:18,622 - __main__ - INFO - 找到输出文件 / Found output file: D:\Github\ET-partition\outputs\test_run\uwue\uwue_processing_20251102_095044.log
+2025-11-02 10:08:18,622 - __main__ - WARNING - 警告 / Warning: 输出文件为空 / Output file is empty: uwue_processing_20251102_095044.log
+2025-11-02 10:08:18,622 - __main__ - INFO - 找到输出文件 / Found output file: D:\Github\ET-partition\outputs\test_run\uwue\uwue_processing_20251102_095131.log
+2025-11-02 10:08:18,622 - __main__ - WARNING - 警告 / Warning: 输出文件为空 / Output file is empty: uwue_processing_20251102_095131.log
+2025-11-02 10:08:18,623 - __main__ - INFO - 找到输出文件 / Found output file: D:\Github\ET-partition\outputs\test_run\uwue\uwue_processing_20251102_095326.log
+2025-11-02 10:08:18,623 - __main__ - WARNING - 警告 / Warning: 输出文件为空 / Output file is empty: uwue_processing_20251102_095326.log
+2025-11-02 10:08:18,623 - __main__ - INFO - 找到输出文件 / Found output file: D:\Github\ET-partition\outputs\test_run\uwue\uwue_processing_20251102_095554.log
+2025-11-02 10:08:18,623 - __main__ - WARNING - 警告 / Warning: 输出文件为空 / Output file is empty: uwue_processing_20251102_095554.log
+2025-11-02 10:08:18,623 - __main__ - INFO - 找到输出文件 / Found output file: D:\Github\ET-partition\outputs\test_run\uwue\uwue_processing_20251102_095640.log
+2025-11-02 10:08:18,623 - __main__ - WARNING - 警告 / Warning: 输出文件为空 / Output file is empty: uwue_processing_20251102_095640.log
+2025-11-02 10:08:18,623 - __main__ - INFO - 找到输出文件 / Found output file: D:\Github\ET-partition\outputs\test_run\uwue\uwue_processing_20251102_100817.log
+2025-11-02 10:08:18,623 - __main__ - WARNING - 警告 / Warning: 输出文件为空 / Output file is empty: uwue_processing_20251102_100817.log
+2025-11-02 10:08:18,623 - __main__ - INFO - 测试完成 / Test completed: uWUE
+2025-11-02 10:08:18,623 - __main__ - INFO - 用时 / Duration: 2.65 seconds
+2025-11-02 10:08:18,623 - __main__ - INFO - 状态 / Status: 成功 / SUCCESS
+2025-11-02 10:08:18,624 - __main__ - INFO - --------------------------------------------------------------------------------
+2025-11-02 10:08:18,624 - __main__ - INFO - ================================================================================
+2025-11-02 10:08:18,624 - __main__ - INFO - 开始测试方法 / Starting test for method: TEA
+2025-11-02 10:08:18,624 - __main__ - INFO - ================================================================================
+2025-11-02 10:08:18,917 - __main__ - INFO - 运行TEA处理 / Running TEA processing
+2025-11-02 10:08:18,919 - __main__ - INFO - 测试完成 / Test completed: TEA
+2025-11-02 10:08:18,919 - __main__ - INFO - 用时 / Duration: 0.30 seconds
+2025-11-02 10:08:18,919 - __main__ - INFO - 状态 / Status: 失败 / FAILED
+2025-11-02 10:08:18,919 - __main__ - ERROR - 错误信息 / Error: 'Args' object is not iterable
+2025-11-02 10:08:18,919 - __main__ - INFO - --------------------------------------------------------------------------------
+2025-11-02 10:08:18,919 - __main__ - ERROR - TEA测试失败 / TEA test failed
 Traceback (most recent call last):
   File "D:\Github\ET-partition\tests\test_all_methods.py", line 323, in test_tea_method
     tea_batch_main(args)
     ~~~~~~~~~~~~~~^^^^^^
-  File "D:\Github\ET-partition\methods\tea\batch.py", line 151, in main
+  File "D:\Github\ET-partition\methods\tea\batch.py", line 164, in main
     args = parser.parse_args(args=list(argv) if argv is not None else None)
                                   ~~~~^^^^^^
 TypeError: 'Args' object is not iterable
-2025-11-02 09:56:42,332 - __main__ - INFO - ================================================================================
-2025-11-02 09:56:42,332 - __main__ - INFO - 开始测试方法 / Starting test for method: Perez-Priego
-2025-11-02 09:56:42,332 - __main__ - INFO - ================================================================================
-2025-11-02 09:56:42,342 - __main__ - INFO - 运行Perez-Priego处理 / Running Perez-Priego processing
+2025-11-02 10:08:18,920 - __main__ - INFO - ================================================================================
+2025-11-02 10:08:18,920 - __main__ - INFO - 开始测试方法 / Starting test for method: Perez-Priego
+2025-11-02 10:08:18,920 - __main__ - INFO - ================================================================================
+2025-11-02 10:08:18,936 - __main__ - INFO - 运行Perez-Priego处理 / Running Perez-Priego processing
