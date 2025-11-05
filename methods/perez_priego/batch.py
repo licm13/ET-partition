@@ -5,16 +5,22 @@ from __future__ import annotations
 import argparse
 import re
 from pathlib import Path
-from typing import Iterable, List, Optional, Tuple
-from concurrent.futures import ProcessPoolExecutor, as_completed
-import multiprocessing
+from typing import List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
 from . import et_partitioning_functions as etp
+from ..common_utils import (
+    DEFAULT_FLUXNET_PATTERN,
+    get_expected_csv_filename,
+    extract_site_id,
+    iter_site_folders,
+    process_sites_parallel,
+)
 
+# Perez-Priego uses stricter pattern (FLX only, not AMF)
 FOLDER_PATTERN = re.compile(r"^FLX_.*_FLUXNET2015_FULLSET_\d{4}-\d{4}_\d+-\d+$")
 
 
@@ -55,19 +61,32 @@ def process_site_file(
     site_alt_df: pd.DataFrame,
     default_altitude_km: float,
     missing_altitude_sites: List[str],
-) -> None:
-    """Run the Perez-Priego partitioning workflow for a single site."""
-
+) -> Tuple[bool, Optional[str]]:
+    """
+    Run the Perez-Priego partitioning workflow for a single site.
+    
+    Returns
+    -------
+    Tuple[bool, Optional[str]]
+        (success, error_message)
+    """
     filename = csv_filepath.name
     try:
-        site_name = filename.split("_")[1]
+        site_name = extract_site_id(filename)
     except IndexError:
-        print(f"   -> Could not parse site name from {filename}, skipping.")
-        return
+        error_msg = f"Could not parse site name from {filename}"
+        print(f"   -> {error_msg}, skipping.")
+        return False, error_msg
 
     print(f"\n[Processing Site]: {site_name}")
     print(f" -> Reading data file: {filename}")
-    eddy_sample = pd.read_csv(csv_filepath, na_values=-9999)
+    
+    try:
+        eddy_data = pd.read_csv(csv_filepath, na_values=-9999)
+    except Exception as exc:
+        error_msg = f"Failed to read CSV: {exc}"
+        print(f"   -> {error_msg}")
+        return False, error_msg
 
     # Get altitude
     site_altitude_km = get_site_altitude(
@@ -76,75 +95,101 @@ def process_site_file(
     print(f"   -> Site elevation: {site_altitude_km:.3f} km")
 
     print(" -> Step 1: Calculating long-term parameters...")
-    Chi_o = etp.calculate_chi_o(
-        eddy_sample, "GPP_NT_VUT_MEAN", "VPD_F", "TA_F", c_coef=1.189, z=site_altitude_km
-    )
-    WUE_o = etp.calculate_WUE_o(
-        eddy_sample, "GPP_NT_VUT_MEAN", "VPD_F", "TA_F", c_coef=1.189, z=site_altitude_km
-    )
+    try:
+        chi_optimal = etp.calculate_chi_o(
+            eddy_data, "GPP_NT_VUT_MEAN", "VPD_F", "TA_F", 
+            c_coef=1.189, z=site_altitude_km
+        )
+        wue_optimal = etp.calculate_WUE_o(
+            eddy_data, "GPP_NT_VUT_MEAN", "VPD_F", "TA_F", 
+            c_coef=1.189, z=site_altitude_km
+        )
+    except Exception as exc:
+        error_msg = f"Failed to calculate parameters: {exc}"
+        print(f"   -> {error_msg}")
+        return False, error_msg
 
     print(" -> Step 2: Pre-processing data...")
-    ds = eddy_sample.copy()
-    ds["rDate"] = pd.to_datetime(ds["TIMESTAMP_END"].astype(str), format="%Y%m%d%H%M")
-    ds["date"] = ds["rDate"].dt.date
-    unique_dates = sorted(ds["date"].dropna().unique())
-    date_map = {date: i + 1 for i, date in enumerate(unique_dates)}
-    ds["loop"] = ds["date"].map(date_map)
+    processed_data = eddy_data.copy()
+    processed_data["rDate"] = pd.to_datetime(
+        processed_data["TIMESTAMP_END"].astype(str), format="%Y%m%d%H%M"
+    )
+    processed_data["date"] = processed_data["rDate"].dt.date
+    unique_dates = sorted(processed_data["date"].dropna().unique())
+    date_map = {date: idx + 1 for idx, date in enumerate(unique_dates)}
+    processed_data["loop"] = processed_data["date"].map(date_map)
 
     print(" -> Step 3: Starting daily ET partitioning loop...")
-    unique_days = sorted(ds["loop"].dropna().unique())
-    list_of_results = []
+    unique_days = sorted(processed_data["loop"].dropna().unique())
+    results_list = []
 
-    for i in unique_days:
-        if i < 3 or i > len(unique_days) - 2:
+    for day_idx in unique_days:
+        # Skip edge days (need 5-day window: ±2 days)
+        if day_idx < 3 or day_idx > len(unique_days) - 2:
             continue
-        window_indices = [i - 2, i - 1, i, i + 1, i + 2]
-        tmp = ds[ds["loop"].isin(window_indices)].copy()
-        tmpp = tmp[tmp["NIGHT"] == 0].copy()
-        if tmpp.dropna(subset=["GPP_NT_VUT_MEAN", "VPD_F", "TA_F"]).shape[0] < 50:
+        
+        # Select 5-day window
+        window_indices = [day_idx - 2, day_idx - 1, day_idx, day_idx + 1, day_idx + 2]
+        window_data = processed_data[processed_data["loop"].isin(window_indices)].copy()
+        daytime_data = window_data[window_data["NIGHT"] == 0].copy()
+        
+        # Check if sufficient data available
+        required_cols = ["GPP_NT_VUT_MEAN", "VPD_F", "TA_F"]
+        if daytime_data.dropna(subset=required_cols).shape[0] < 50:
             continue
-        par_lower = [0, 0, 10, 0]
-        par_upper = [400, 0.4, 30, 1]
-        optimal_par = etp.optimal_parameters(par_lower, par_upper, tmpp, Chi_o, WUE_o)
-        transpiration_mod = etp.transpiration_model(optimal_par, tmp, Chi_o)
-        landa = (3147.5 - 2.37 * (tmp["TA_F"].values + 273.15)) * 1000
-        ET_mmol = tmp["LE_F_MDS"].values / landa * 1e6 / 18
-        evaporation_mod = ET_mmol - transpiration_mod
-        tmp["ET"] = ET_mmol
-        tmp["transpiration_mod"] = transpiration_mod
-        tmp["evaporation_mod"] = np.clip(evaporation_mod, a_min=0, a_max=None)
-        central_day_result = tmp[tmp["loop"] == i]
-        list_of_results.append(central_day_result)
+        
+        # Optimize parameters for this window
+        param_lower = [0, 0, 10, 0]
+        param_upper = [400, 0.4, 30, 1]
+        
+        try:
+            optimal_params = etp.optimal_parameters(
+                param_lower, param_upper, daytime_data, chi_optimal, wue_optimal
+            )
+        except Exception:
+            continue  # Skip this day if optimization fails
+        
+        # Calculate transpiration and evaporation
+        transpiration = etp.transpiration_model(optimal_params, window_data, chi_optimal)
+        
+        # Calculate ET from latent heat
+        lambda_water = (3147.5 - 2.37 * (window_data["TA_F"].values + 273.15)) * 1000
+        et_mmol = window_data["LE_F_MDS"].values / lambda_water * 1e6 / 18
+        evaporation = et_mmol - transpiration
+        
+        # Store results for central day
+        window_data["ET"] = et_mmol
+        window_data["transpiration_mod"] = transpiration
+        window_data["evaporation_mod"] = np.clip(evaporation, a_min=0, a_max=None)
+        central_day_result = window_data[window_data["loop"] == day_idx]
+        results_list.append(central_day_result)
 
     print(" -> Step 4: Post-processing and output...")
-    if not list_of_results:
-        print(f"   -> No valid result for {site_name}, skipping output.")
-        return
-    out = pd.concat(list_of_results)
+    if not results_list:
+        error_msg = "No valid result for site"
+        print(f"   -> {error_msg}, skipping output.")
+        return False, error_msg
+    
+    output_data = pd.concat(results_list)
     output_csv = output_dir / f"{site_name}_pp_output.csv"
-    out.to_csv(output_csv, index=False)
+    output_data.to_csv(output_csv, index=False)
     print(f" -> [Saved] CSV: {output_csv}")
 
-    out["Hour"] = out["rDate"].dt.hour
-    ET_agg = out.groupby("Hour")["ET"].mean()
-    transp_agg = out.groupby("Hour")["transpiration_mod"].mean()
-    evap_agg = out.groupby("Hour")["evaporation_mod"].mean()
+    # Create diagnostic plot
+    output_data["Hour"] = output_data["rDate"].dt.hour
+    et_hourly = output_data.groupby("Hour")["ET"].mean()
+    transp_hourly = output_data.groupby("Hour")["transpiration_mod"].mean()
+    evap_hourly = output_data.groupby("Hour")["evaporation_mod"].mean()
 
     fig, ax = plt.subplots(figsize=(12, 7))
-    ax.plot(ET_agg.index, ET_agg.values, label="ET", color="black")
+    ax.plot(et_hourly.index, et_hourly.values, label="ET", color="black")
     ax.plot(
-        transp_agg.index,
-        transp_agg.values,
-        label="Transpiration",
-        linestyle="--",
-        color="green",
+        transp_hourly.index, transp_hourly.values,
+        label="Transpiration", linestyle="--", color="green",
     )
     ax.plot(
-        evap_agg.index,
-        evap_agg.values,
-        label="Evaporation",
-        linestyle=":",
-        color="red",
+        evap_hourly.index, evap_hourly.values,
+        label="Evaporation", linestyle=":", color="red",
     )
     ax.set_xlabel("Hour")
     ax.set_ylabel("Flux (mmol/m²/s)")
@@ -155,20 +200,11 @@ def process_site_file(
     plt.savefig(plot_path)
     plt.close()
     print(f" -> [Saved] Plot: {plot_path}")
+    
+    return True, None
 
 
-def iter_site_folders(base_path: Path, pattern: re.Pattern[str]) -> Iterable[Path]:
-    """Yield subdirectories that match the Fluxnet naming convention."""
-
-    if not base_path.exists():
-        raise FileNotFoundError(f"Base path does not exist: {base_path}")
-
-    for folder in sorted(base_path.iterdir()):
-        if folder.is_dir() and pattern.match(folder.name):
-            yield folder
-
-
-def main(argv: Optional[Iterable[str]] = None) -> None:
+def main(argv: Optional[list[str]] = None) -> None:
     """Command-line interface for batch processing."""
 
     repo_root = Path(__file__).resolve().parents[2]
@@ -213,7 +249,6 @@ def main(argv: Optional[Iterable[str]] = None) -> None:
     )
 
     args = parser.parse_args(args=list(argv) if argv is not None else None)
-
     args.output_path.mkdir(parents=True, exist_ok=True)
 
     site_alt_df = load_site_metadata(args.site_metadata)
@@ -226,10 +261,12 @@ def main(argv: Optional[Iterable[str]] = None) -> None:
     # Collect all site files to process
     site_files = []
     for folder_path in iter_site_folders(args.base_path, FOLDER_PATTERN):
-        csv_filename = (
-            folder_path.name.replace("_FLUXNET2015_FULLSET_", "_FLUXNET2015_FULLSET_HH_")
-            + ".csv"
-        )
+        try:
+            csv_filename = get_expected_csv_filename(folder_path.name)
+        except ValueError:
+            print(f" -> Invalid folder name: {folder_path.name}")
+            continue
+            
         csv_filepath = folder_path / csv_filename
         if not csv_filepath.exists():
             print(f" -> CSV not found for folder: {folder_path.name}")
@@ -238,69 +275,47 @@ def main(argv: Optional[Iterable[str]] = None) -> None:
 
     print(f"Found {len(site_files)} site files to process")
 
+    if not site_files:
+        print("No site files found. Exiting.")
+        return
+
     if args.parallel:
-        # Parallel processing
-        workers = args.workers if args.workers else multiprocessing.cpu_count()
-        print(f"Using parallel processing with {workers} workers")
-
-        # Helper function for parallel execution
+        # Parallel processing using common utility
         def process_wrapper(csv_filepath: Path) -> Tuple[bool, Optional[str]]:
-            """Wrapper to handle exceptions in parallel processing"""
-            try:
-                process_site_file(
-                    csv_filepath,
-                    args.output_path,
-                    site_alt_df,
-                    args.default_altitude,
-                    missing_altitude_sites,
-                )
-                return True, None
-            except Exception as exc:
-                return False, str(exc)
-
-        with ProcessPoolExecutor(max_workers=workers) as executor:
-            # Submit all tasks
-            future_to_file = {
-                executor.submit(process_wrapper, csv_file): csv_file
-                for csv_file in site_files
-            }
-
-            # Process completed tasks
-            completed = 0
-            total = len(site_files)
-            errors = []
-
-            for future in as_completed(future_to_file):
-                csv_filepath = future_to_file[future]
-                completed += 1
-
-                try:
-                    success, error_msg = future.result()
-                    if success:
-                        print(f"Progress: {completed}/{total} ({completed/total*100:.1f}%)")
-                    else:
-                        errors.append((csv_filepath.name, error_msg))
-                        print(f"[Error processing {csv_filepath.name}]: {error_msg}")
-                except Exception as e:
-                    errors.append((csv_filepath.name, str(e)))
-                    print(f"[Exception processing {csv_filepath.name}]: {e}")
-
-            if errors:
-                print(f"\n{len(errors)} files had errors during processing")
-
+            """Wrapper for parallel execution"""
+            return process_site_file(
+                csv_filepath,
+                args.output_path,
+                site_alt_df,
+                args.default_altitude,
+                missing_altitude_sites,
+            )
+        
+        successful, failed, errors = process_sites_parallel(
+            site_files,
+            process_wrapper,
+            workers=args.workers,
+            description="Processing Perez-Priego sites"
+        )
+        
+        if errors:
+            print(f"\n{len(errors)} files had errors during processing")
     else:
         # Serial processing
+        successful = 0
+        failed = 0
         for csv_filepath in site_files:
-            try:
-                process_site_file(
-                    csv_filepath,
-                    args.output_path,
-                    site_alt_df,
-                    args.default_altitude,
-                    missing_altitude_sites,
-                )
-            except Exception as exc:  # pragma: no cover - rich CLI feedback
-                print(f"[Error processing {csv_filepath.name}]: {exc}")
+            success, error_msg = process_site_file(
+                csv_filepath,
+                args.output_path,
+                site_alt_df,
+                args.default_altitude,
+                missing_altitude_sites,
+            )
+            if success:
+                successful += 1
+            else:
+                failed += 1
 
     if missing_altitude_sites:
         missing_path = args.output_path / "missing_altitude_sites.csv"
@@ -310,7 +325,7 @@ def main(argv: Optional[Iterable[str]] = None) -> None:
         print(f"\n[Saved missing altitude sites] -> {missing_path}")
 
     print("=" * 60)
-    print("Batch processing complete.")
+    print(f"Processing complete: {successful} successful, {failed} failed")
     print("=" * 60)
 
 

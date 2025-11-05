@@ -5,49 +5,54 @@ from __future__ import annotations
 import argparse
 import re
 from pathlib import Path
-from typing import Iterable, Optional
-from concurrent.futures import ProcessPoolExecutor, as_completed
-import multiprocessing
+from typing import Optional, Tuple
 
 import pandas as pd
 
 from .TEA.TEA import simplePartition
-
-DEFAULT_PATTERN = re.compile(
-    r"^(?:AMF|FLX)_.*_FLUXNET(?:2015)?_FULLSET_\d{4}-\d{4}_\d+-\d+$"
+from ..common_utils import (
+    DEFAULT_FLUXNET_PATTERN,
+    get_expected_csv_filename,
+    extract_site_id,
+    iter_site_folders,
+    process_sites_parallel,
 )
 
 
-def _expected_csv_name(folder_name: str) -> str:
-    if "_FLUXNET2015_FULLSET_" in folder_name:
-        return folder_name.replace(
-            "_FLUXNET2015_FULLSET_", "_FLUXNET2015_FULLSET_HH_"
-        ) + ".csv"
-    if "_FLUXNET_FULLSET_" in folder_name:
-        return folder_name.replace("_FLUXNET_FULLSET_", "_FLUXNET_FULLSET_HH_") + ".csv"
-    raise ValueError(f"Folder name does not follow expected pattern: {folder_name}")
-
-
-def process_site_folder(folder_path: Path, output_path: Path) -> None:
-    """Execute the TEA workflow for a single Fluxnet-style folder."""
-
+def process_site_folder(folder_path: Path, output_path: Path) -> Tuple[bool, Optional[str]]:
+    """
+    Execute the TEA workflow for a single Fluxnet-style folder.
+    
+    Returns
+    -------
+    Tuple[bool, Optional[str]]
+        (success, error_message)
+    """
     folder_name = folder_path.name
     print(f"\n[Processing folder]: {folder_name}")
 
-    csv_filename = _expected_csv_name(folder_name)
+    try:
+        csv_filename = get_expected_csv_filename(folder_name)
+    except ValueError as exc:
+        error_msg = f"Invalid folder name: {exc}"
+        print(f"  -> {error_msg}")
+        return False, error_msg
+    
     csv_filepath = folder_path / csv_filename
 
     if not csv_filepath.exists():
-        print(f"  -> CSV file not found: {csv_filename}, skipping.")
-        return
+        error_msg = f"CSV file not found: {csv_filename}"
+        print(f"  -> {error_msg}, skipping.")
+        return False, error_msg
 
     print(f"  -> Reading file: {csv_filename}")
 
     try:
-        df = pd.read_csv(csv_filepath, on_bad_lines="skip")
-    except Exception as exc:  # pragma: no cover - CLI feedback
-        print(f"  -> Failed to read CSV file: {exc}")
-        return
+        input_data = pd.read_csv(csv_filepath, on_bad_lines="skip")
+    except Exception as exc:
+        error_msg = f"Failed to read CSV file: {exc}"
+        print(f"  -> {error_msg}")
+        return False, error_msg
 
     column_mapping = {
         "LE_F_MDS": "ET",
@@ -62,68 +67,65 @@ def process_site_folder(folder_path: Path, output_path: Path) -> None:
     }
 
     original_columns = list(column_mapping.keys())
-    missing_cols = [col for col in original_columns if col not in df.columns]
+    missing_cols = [col for col in original_columns if col not in input_data.columns]
     if missing_cols:
-        print(f"  -> Missing required columns {missing_cols}, skipping.")
-        return
+        error_msg = f"Missing required columns {missing_cols}"
+        print(f"  -> {error_msg}, skipping.")
+        return False, error_msg
 
-    processed_df = df[original_columns].copy()
-    processed_df.rename(columns=column_mapping, inplace=True)
-    processed_df["ET"] = processed_df["ET"] * 0.0007348
+    processed_data = input_data[original_columns].copy()
+    processed_data.rename(columns=column_mapping, inplace=True)
+    processed_data["ET"] = processed_data["ET"] * 0.0007348
 
-    num_rows = len(processed_df)
-    processed_df["timestamp"] = range(0, num_rows * 30, 30)
-    processed_df = processed_df[
-        ["timestamp"] + [col for col in processed_df.columns if col != "timestamp"]
+    num_rows = len(processed_data)
+    processed_data["timestamp"] = range(0, num_rows * 30, 30)
+    processed_data = processed_data[
+        ["timestamp"] + [col for col in processed_data.columns if col != "timestamp"]
     ]
 
     print("  -> Pre-processing finished, running TEA simplePartition...")
 
-    timestamp = processed_df["timestamp"].values
-    ET = processed_df["ET"].values
-    GPP = processed_df["GPP"].values
-    RH = processed_df["RH"].values
-    Rg = processed_df["Rg"].values
-    Rg_pot = processed_df["Rg_pot"].values
-    Tair = processed_df["Tair"].values
-    VPD = processed_df["VPD"].values
-    precip = processed_df["precip"].values
-    u = processed_df["u"].values
+    timestamp = processed_data["timestamp"].values
+    et_values = processed_data["ET"].values
+    gpp_values = processed_data["GPP"].values
+    rh_values = processed_data["RH"].values
+    rg_values = processed_data["Rg"].values
+    rg_pot_values = processed_data["Rg_pot"].values
+    tair_values = processed_data["Tair"].values
+    vpd_values = processed_data["VPD"].values
+    precip_values = processed_data["precip"].values
+    u_values = processed_data["u"].values
 
-    TEA_T, TEA_E, TEA_WUE = simplePartition(
-        timestamp, ET, GPP, RH, Rg, Rg_pot, Tair, VPD, precip, u
+    tea_transpiration, tea_evaporation, tea_wue = simplePartition(
+        timestamp, et_values, gpp_values, rh_values, rg_values, rg_pot_values,
+        tair_values, vpd_values, precip_values, u_values
     )
 
-    sitename = folder_name.split("_")[1]
+    try:
+        sitename = extract_site_id(folder_name)
+    except IndexError:
+        error_msg = f"Could not extract site ID from folder name"
+        print(f"  -> {error_msg}")
+        return False, error_msg
+        
     output_filename = f"{sitename}_TEA_results.csv"
     output_filepath = output_path / output_filename
 
-    results_df = pd.DataFrame(
+    results_dataframe = pd.DataFrame(
         {
             "timestamp": timestamp,
-            "TEA_T": TEA_T,
-            "TEA_E": TEA_E,
-            "TEA_WUE": TEA_WUE,
+            "TEA_T": tea_transpiration,
+            "TEA_E": tea_evaporation,
+            "TEA_WUE": tea_wue,
         }
     )
-    results_df.to_csv(output_filepath, index=False)
+    results_dataframe.to_csv(output_filepath, index=False)
     print(f"  -> Saved results to: {output_filepath}")
+    
+    return True, None
 
 
-def iter_site_folders(
-    base_path: Path, pattern: re.Pattern[str] = DEFAULT_PATTERN
-) -> Iterable[Path]:
-    """Yield folders that match the TEA naming convention."""
-
-    if not base_path.exists():
-        raise FileNotFoundError(f"Base path does not exist: {base_path}")
-
-    for entry in sorted(base_path.iterdir()):
-        if entry.is_dir() and pattern.match(entry.name):
-            yield entry
-
-
-def main(argv: Optional[Iterable[str]] = None) -> None:
+def main(argv: Optional[list[str]] = None) -> None:
     """Command-line entry point for the TEA batch workflow."""
 
     repo_root = Path(__file__).resolve().parents[2]
@@ -146,7 +148,7 @@ def main(argv: Optional[Iterable[str]] = None) -> None:
     parser.add_argument(
         "--pattern",
         type=str,
-        default=DEFAULT_PATTERN.pattern,
+        default=DEFAULT_FLUXNET_PATTERN.pattern,
         help="Regular expression used to match site folder names.",
     )
     parser.add_argument(
@@ -165,46 +167,48 @@ def main(argv: Optional[Iterable[str]] = None) -> None:
     args.output_path.mkdir(parents=True, exist_ok=True)
     folder_pattern = re.compile(args.pattern)
 
-    print("--- TEA batch processing ---")
+    print("=" * 60)
+    print("TEA batch processing")
     print(f"Scanning directory: {args.base_path}")
-    print(f"Output directory:  {args.output_path}")
+    print(f"Output directory:   {args.output_path}")
 
     # Collect all folders
     site_folders = list(iter_site_folders(args.base_path, folder_pattern))
     print(f"Found {len(site_folders)} site folders")
 
+    if not site_folders:
+        print("No site folders found. Exiting.")
+        return
+
     if args.parallel:
-        # Parallel processing
-        workers = args.workers if args.workers else multiprocessing.cpu_count()
-        print(f"Using parallel processing with {workers} workers")
-
-        with ProcessPoolExecutor(max_workers=workers) as executor:
-            # Submit all tasks
-            future_to_folder = {
-                executor.submit(process_site_folder, folder, args.output_path): folder
-                for folder in site_folders
-            }
-
-            # Process completed tasks
-            completed = 0
-            total = len(site_folders)
-
-            for future in as_completed(future_to_folder):
-                folder_path = future_to_folder[future]
-                completed += 1
-
-                try:
-                    future.result()
-                    print(f"Progress: {completed}/{total} ({completed/total*100:.1f}%)")
-                except Exception as e:
-                    print(f"Error processing {folder_path.name}: {e}")
-
+        # Parallel processing using common utility
+        def process_wrapper(folder_path: Path) -> Tuple[bool, Optional[str]]:
+            """Wrapper for parallel execution"""
+            return process_site_folder(folder_path, args.output_path)
+        
+        successful, failed, errors = process_sites_parallel(
+            site_folders,
+            process_wrapper,
+            workers=args.workers,
+            description="Processing TEA sites"
+        )
+        
+        if errors:
+            print(f"\n{len(errors)} sites had errors during processing")
     else:
         # Serial processing
+        successful = 0
+        failed = 0
         for folder_path in site_folders:
-            process_site_folder(folder_path, args.output_path)
+            success, error_msg = process_site_folder(folder_path, args.output_path)
+            if success:
+                successful += 1
+            else:
+                failed += 1
 
-    print("--- Processing complete ---")
+    print("=" * 60)
+    print(f"Processing complete: {successful} successful, {failed} failed")
+    print("=" * 60)
 
 
 if __name__ == "__main__":  # pragma: no cover - CLI entry point

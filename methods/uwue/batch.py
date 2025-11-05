@@ -235,21 +235,21 @@ class uWUEBatchProcessor:
         )
         ec['PET'] = PET * 60 * 60 * (24 / nStepsPerDay)
         
-        # 计算 Zhou 分解所需的掩码
-        uWUEa_Mask, uWUEp_Mask = zhou.zhouFlags(
-            ec, nStepsPerDay, hourlyMask, GPPvariant='GPP_NT'
+        # Calculate masks needed for Zhou partitioning
+        actual_wue_mask, potential_wue_mask = zhou.build_zhou_masks(
+            ec, nStepsPerDay, hourlyMask, gpp_variable='GPP_NT'
         )
         
-        self.logger.info(f"  🎯 有效数据掩码: uWUEa={uWUEa_Mask.sum()}, uWUEp={uWUEp_Mask.sum()}")
+        self.logger.info(f"  🎯 Valid data masks: actual={actual_wue_mask.sum()}, potential={potential_wue_mask.sum()}")
         
-        # 准备日均值数据集
+        # Prepare daily aggregated dataset
         ds_zhou = ec[['ET']].resample(time='D').sum(skipna=False)
         ds_zhou['ET'] = ds_zhou['ET'].assign_attrs(
             long_name='evapotranspiration', 
             units='mm d-1'
         )
         
-        # 初始化蒸腾量变量
+        # Initialize transpiration variables
         ds_zhou['zhou_T'] = ds_zhou['ET'] * np.nan
         ds_zhou['zhou_T'] = ds_zhou['zhou_T'].assign_attrs(
             long_name='uWUE estimated transpiration (daily uWUEa)',
@@ -262,30 +262,30 @@ class uWUEBatchProcessor:
             units='mm d-1'
         )
         
-        # 按年份执行 Zhou 分解
-        self.logger.info(f"  🔄 开始按年份执行 Zhou 分解...")
-        ET_vals = ec.ET.values
-        GxV_vals = (ec.GPP_NT * np.sqrt(ec.VPD)).values
+        # Execute Zhou partitioning by year
+        self.logger.info(f"  🔄 Starting Zhou partitioning by year...")
+        et_values = ec.ET.values
+        gpp_vpd_values = (ec.GPP_NT * np.sqrt(ec.VPD)).values
         
         years = np.unique(ec['time.year'])
         uwue_values = {}
         
         for year in years:
-            yearMask = (ec['time.year'] == year).values
-            uWUEp, zhou_T, zhou_T_8day = zhou.zhou_part(
-                ET_vals[yearMask], GxV_vals[yearMask],
-                uWUEa_Mask[yearMask], uWUEp_Mask[yearMask],
-                nStepsPerDay, hourlyMask[yearMask],
-                rho=95 / 100
+            year_mask = (ec['time.year'] == year).values
+            potential_wue, daily_transp, transp_8day = zhou.zhou_part(
+                et_values[year_mask], gpp_vpd_values[year_mask],
+                actual_wue_mask[year_mask], potential_wue_mask[year_mask],
+                nStepsPerDay, hourlyMask[year_mask],
+                percentile=0.95
             )
             
-            ds_zhou['zhou_T'][ds_zhou['time.year'] == year] = zhou_T
-            ds_zhou['zhou_T_8day'][ds_zhou['time.year'] == year] = zhou_T_8day
-            uwue_values[year] = uWUEp
+            ds_zhou['zhou_T'][ds_zhou['time.year'] == year] = daily_transp
+            ds_zhou['zhou_T_8day'][ds_zhou['time.year'] == year] = transp_8day
+            uwue_values[year] = potential_wue
             
-            self.logger.info(f"    - {year} 年: uWUEp = {uWUEp:.4f}")
+            self.logger.info(f"    - {year} year: potential_wue = {potential_wue:.4f}")
         
-        # 添加站点和处理信息
+        # Add site and processing information
         ds_zhou.attrs['sitename'] = sitename
         ds_zhou.attrs['processing_date'] = datetime.now().isoformat()
         ds_zhou.attrs['uwue_values'] = str(uwue_values)
