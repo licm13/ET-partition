@@ -11,6 +11,7 @@ et_partition.egg-info/dependency_links.txt
 et_partition.egg-info/requires.txt
 et_partition.egg-info/top_level.txt
 methods/__init__.py
+methods/common_utils.py
 methods/perez_priego/__init__.py
 methods/perez_priego/batch.py
 methods/perez_priego/et_partitioning_functions.py

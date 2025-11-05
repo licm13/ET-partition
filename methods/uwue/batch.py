@@ -283,9 +283,9 @@ class uWUEBatchProcessor:
             ds_zhou['zhou_T_8day'][ds_zhou['time.year'] == year] = transp_8day
             uwue_values[year] = potential_wue
             
-            self.logger.info(f"    - {year} 年: uWUEp = {uWUEp:.4f}")
+            self.logger.info(f"    - {year} year: potential_wue = {potential_wue:.4f}")
         
-        # 添加站点和处理信息
+        # Add site and processing information
         ds_zhou.attrs['sitename'] = sitename
         ds_zhou.attrs['processing_date'] = datetime.now().isoformat()
         ds_zhou.attrs['uwue_values'] = str(uwue_values)
