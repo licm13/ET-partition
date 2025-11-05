@@ -1,62 +1,113 @@
 import numpy as np
 from scipy.optimize import fmin
 
-# Definitions:
-
-MinDaysPerYear = 5 # minimum number of days in a year to run the Zhou partitioning
-MinHHPerDay    = 1 # minimum number of days to calculate a daily T for Zhou
-MinHHPer8Day   = 1 # minimum number of days to calculate an 8 daily T for Zhou
+# Configuration constants
+MIN_DAYS_PER_YEAR = 5  # Minimum number of days required in a year for Zhou partitioning
+MIN_HALFHOURS_PER_DAY = 1  # Minimum number of half-hours needed for daily T calculation
+MIN_HALFHOURS_PER_8DAY = 1  # Minimum number of half-hours needed for 8-day T calculation
 
 # Main functions:
 
-def zhouRainFlagcalc(precip,PET,nStepsPerDay,hourlyMask):
-    dailyPrecip=precip[hourlyMask].reshape(-1,nStepsPerDay).sum(axis=1)
-    dailyPET=PET[hourlyMask].reshape(-1,nStepsPerDay).sum(axis=1)
+def calculate_rain_flag(precipitation, potential_et, steps_per_day, hourly_mask):
+    """
+    Calculate precipitation flag for Zhou partitioning.
+    
+    Excludes days with precipitation and subsequent days based on 
+    precipitation amount relative to potential evapotranspiration.
+    
+    Parameters
+    ----------
+    precipitation : array
+        Precipitation values
+    potential_et : array
+        Potential evapotranspiration values
+    steps_per_day : int
+        Number of timesteps per day (typically 48 for half-hourly)
+    hourly_mask : bool array
+        Mask for valid timesteps
+        
+    Returns
+    -------
+    array
+        Boolean mask (True = exclude from uWUEp calculation)
+    """
+    daily_precip = precipitation[hourly_mask].reshape(-1, steps_per_day).sum(axis=1)
+    daily_pet = potential_et[hourly_mask].reshape(-1, steps_per_day).sum(axis=1)
 
-    zhouPrecipMask = np.isfinite(dailyPrecip) & np.isfinite(dailyPET)
+    precip_mask = np.isfinite(daily_precip) & np.isfinite(daily_pet)
 
-    for j in range(zhouPrecipMask.shape[0]):
-        if dailyPrecip[j]>0:
-            zhouPrecipMask[j]=False
-            if (dailyPrecip[j]>dailyPET[j]) & (dailyPrecip.shape[0]-j>1):
-                zhouPrecipMask[j+1]=False
-            if (dailyPrecip[j]>dailyPET[j]*2) & (dailyPrecip.shape[0]-j>2):
-                zhouPrecipMask[j+2]=False
-    return(zhouPrecipMask.repeat(48))
+    for day_idx in range(precip_mask.shape[0]):
+        if daily_precip[day_idx] > 0:
+            precip_mask[day_idx] = False
+            # Exclude next day if precip > PET
+            if (daily_precip[day_idx] > daily_pet[day_idx]) and (daily_precip.shape[0] - day_idx > 1):
+                precip_mask[day_idx + 1] = False
+            # Exclude 2 days if precip > 2*PET
+            if (daily_precip[day_idx] > daily_pet[day_idx] * 2) and (daily_precip.shape[0] - day_idx > 2):
+                precip_mask[day_idx + 2] = False
+    
+    return precip_mask.repeat(steps_per_day)
 
-def zhouFlags(dsIN, nStepsPerDay=48, hourlyMask=None, GPPvariant='GPP_NT'):
-    ds = dsIN.copy()
-    if (hourlyMask is None) and (nStepsPerDay==48):
-        hourlyMask = np.ones(ds.LE.shape).astype(bool)
+def build_zhou_masks(dataset, steps_per_day=48, hourly_mask=None, gpp_variable='GPP_NT'):
+    """
+    Build quality control and condition masks for Zhou partitioning.
+    
+    Creates masks to identify valid data for actual (uWUEa) and potential (uWUEp)
+    water use efficiency calculations.
+    
+    Parameters
+    ----------
+    dataset : xarray.Dataset
+        Input dataset with required variables
+    steps_per_day : int, optional
+        Number of timesteps per day (default: 48 for half-hourly)
+    hourly_mask : bool array, optional
+        Pre-existing mask for valid timesteps
+    gpp_variable : str, optional
+        Name of GPP variable in dataset (default: 'GPP_NT')
+        
+    Returns
+    -------
+    tuple of arrays
+        (actual_wue_mask, potential_wue_mask) - Boolean masks for data selection
+    """
+    if (hourly_mask is None) and (steps_per_day == 48):
+        hourly_mask = np.ones(dataset.LE.shape).astype(bool)
 
-    qualityMask = np.ones(ds.LE.shape).astype(bool)
-    zeroMask    = np.ones(ds.LE.shape).astype(bool)
+    quality_mask = np.ones(dataset.LE.shape).astype(bool)
+    nonzero_mask = np.ones(dataset.LE.shape).astype(bool)
 
-    # Build qualityMask
-    for var in ['NEE','LE','TA','VPD']:
-        QC = ds[var+'_QC'].values
-        QC[QC<0] = 3
-        QC[~np.isfinite(QC)] = 3
-        qualityMask &= QC<2
-    for var in [GPPvariant,'ET','TA','VPD','NETRAD']:
-        qualityMask &= np.isfinite(ds[var].values)
-        qualityMask &= ds[var].values > -9000
+    # Build quality control mask from QC flags
+    for var in ['NEE', 'LE', 'TA', 'VPD']:
+        qc_values = dataset[var + '_QC'].values
+        qc_values[qc_values < 0] = 3
+        qc_values[~np.isfinite(qc_values)] = 3
+        quality_mask &= qc_values < 2
+    
+    # Ensure required variables are finite and valid
+    for var in [gpp_variable, 'ET', 'TA', 'VPD', 'NETRAD']:
+        quality_mask &= np.isfinite(dataset[var].values)
+        quality_mask &= dataset[var].values > -9000
 
-    # Build zeroMask
-    for var in [GPPvariant,'ET','NETRAD','VPD']:
-        zeroMask &= ds[var].values>0
+    # Build mask for non-zero values
+    for var in [gpp_variable, 'ET', 'NETRAD', 'VPD']:
+        nonzero_mask &= dataset[var].values > 0
 
-    # Build seasonMask
-    GPPday     = ds[GPPvariant].values[hourlyMask].reshape(-1,nStepsPerDay).mean(axis=1)
-    seasonMask = np.repeat(GPPday > (0.10 * np.percentile(GPPday,95)),48)
+    # Build growing season mask (GPP > 10% of 95th percentile)
+    gpp_daily = dataset[gpp_variable].values[hourly_mask].reshape(-1, steps_per_day).mean(axis=1)
+    gpp_threshold = 0.10 * np.percentile(gpp_daily, 95)
+    season_mask = np.repeat(gpp_daily > gpp_threshold, steps_per_day)
 
-    # Build precipMask
-    precipMask = zhouRainFlagcalc(ds.P.values,ds.PET.values,nStepsPerDay,hourlyMask)
+    # Build precipitation mask
+    precip_mask = calculate_rain_flag(
+        dataset.P.values, dataset.PET.values, steps_per_day, hourly_mask
+    )
 
-    uWUEa_Mask   = zeroMask & qualityMask
-    uWUEp_Mask   = zeroMask & qualityMask & precipMask & seasonMask
+    # Combine masks
+    actual_wue_mask = nonzero_mask & quality_mask
+    potential_wue_mask = nonzero_mask & quality_mask & precip_mask & season_mask
 
-    return(uWUEa_Mask,uWUEp_Mask)
+    return actual_wue_mask, potential_wue_mask
 
 
 
@@ -144,92 +195,110 @@ def quantreg(x,y,PolyDeg=1,rho=0.95,weights=None):
     return(beta_hat)
 
 
-def zhou_part(ET, GxV, uWUEa_Mask, uWUEp_Mask, nStepsPerDay=48, hourlyMask=None, rho=0.95):
-    '''zhou_part(ET, GxV, uWUEa_Mask, uWUEp_Mask, nStepsPerDay=48, hourlyMask=None, rho=0.95)
-
-    ET partitioning based on Zhou et al. 2016
-
-    Calculates two estimates of underlying water use efficiency,
-    uWUEa based on either a daily or 8 daily window and uWUEp
-    based on a single year. T/ET is then calculated as uWUEa/uWUEp.
-
+def zhou_part(evapotranspiration, gpp_times_vpd_sqrt, actual_mask, potential_mask, 
+              steps_per_day=48, hourly_mask=None, percentile=0.95):
+    """
+    ET partitioning based on Zhou et al. 2016.
+    
+    Calculates two estimates of underlying water use efficiency (uWUE):
+    - uWUEa: actual WUE based on daily or 8-day window
+    - uWUEp: potential WUE based on single year
+    Then calculates T/ET ratio as uWUEa/uWUEp.
 
     Parameters
     ----------
-    ET : array
-        evapotranspiration (mm per timestep)
-    GxV : array
-        GPP*VPD^0.5 in  (gC hPa^0.5 m^-2 d^-1 )
-    uWUEa_Mask : bool array
-        bool array where True indicates timesteps to be included when calculating uWUEa
-    uWUEp_Mask : bool array
-        bool array where True indicates timesteps to be included when calculating uWUEa
-    nStepsPerDay : int
-        number of timesteps in a day, 48 for a half-hourly file (24 for hourly)
-    hourlyMask : bool array
-        bool array used when using an houlry averaged dataset.
-    rho : float between 0-1
-        The percentile to fit to, must be between 0-1
+    evapotranspiration : array
+        Evapotranspiration (mm per timestep)
+    gpp_times_vpd_sqrt : array
+        GPP * sqrt(VPD) in (gC hPa^0.5 m^-2 d^-1)
+    actual_mask : bool array
+        Boolean mask where True indicates timesteps for calculating uWUEa
+    potential_mask : bool array
+        Boolean mask where True indicates timesteps for calculating uWUEp
+    steps_per_day : int, optional
+        Number of timesteps in a day (48 for half-hourly, 24 for hourly)
+    hourly_mask : bool array, optional
+        Boolean mask for hourly averaged dataset
+    percentile : float, optional
+        Percentile for quantile regression (0-1), default 0.95
 
     Returns
     -------
-    uWUEp : float
-        uWUEp estimated
-    zhou_T : array
-        estimated transpiration (mm per timestep)
-    zhou_T_8day : array
-        estimated transpiration using an 8 day window (mm per timestep)
+    potential_wue : float
+        Potential underlying water use efficiency (uWUEp)
+    daily_transpiration : array
+        Estimated daily transpiration (mm d^-1)
+    transpiration_8day : array
+        Estimated transpiration using 8-day moving window (mm d^-1)
 
     References
     ----------
-    - Zhou, S., Yu, B., Zhang, Y., Huang, Y., & Wang, G. (2016). Partitioning evapotranspiration based on the concept of underlying water use efficiency: ET PARTITIONING. Water Resources Research, 52(2), 1160–1175. https://doi.org/10.1002/2015WR017766
-    '''
-    if (hourlyMask is None) and (nStepsPerDay==48):
-            hourlyMask = np.ones(ds.LE.shape).astype(bool)
+    Zhou, S., Yu, B., Zhang, Y., Huang, Y., & Wang, G. (2016). 
+    Partitioning evapotranspiration based on the concept of underlying 
+    water use efficiency. Water Resources Research, 52(2), 1160–1175. 
+    https://doi.org/10.1002/2015WR017766
+    """
+    if (hourly_mask is None) and (steps_per_day == 48):
+        hourly_mask = np.ones(evapotranspiration.shape).astype(bool)
 
-    uWUEp = quantreg(ET[uWUEp_Mask],GxV[uWUEp_Mask],PolyDeg=0,rho=rho)[0][0]
+    # Calculate potential uWUE using quantile regression
+    potential_wue = quantreg(
+        evapotranspiration[potential_mask],
+        gpp_times_vpd_sqrt[potential_mask],
+        PolyDeg=0,
+        rho=percentile
+    )[0][0]
 
-    uWUEa     = np.zeros([ET.reshape(-1,48).shape[0]]) * np.nan
-    uWUEa_n   = uWUEa_Mask.reshape(-1,48).sum(axis=1)
-
-    uWUEa_Mask = np.isfinite(ET) & np.isfinite(GxV)
-
-    for j in range(ET.reshape(-1,48).shape[0]):
-        if uWUEa_Mask.reshape(-1,48)[j].sum() >= MinHHPerDay:
-            x = ET.reshape(-1,48)[j][uWUEa_Mask.reshape(-1,48)[j]][:,np.newaxis]
-            y= GxV.reshape(-1,48)[j][uWUEa_Mask.reshape(-1,48)[j]][:,np.newaxis]
-            a1, _, _, _ = np.linalg.lstsq(x, y, rcond=None)
-            uWUEa[j]     = a1
+    # Reshape arrays once for efficiency
+    et_daily = evapotranspiration.reshape(-1, steps_per_day)
+    gxv_daily = gpp_times_vpd_sqrt.reshape(-1, steps_per_day)
+    num_days = et_daily.shape[0]
+    
+    # Update mask to include finite values
+    valid_mask = np.isfinite(evapotranspiration) & np.isfinite(gpp_times_vpd_sqrt)
+    valid_mask_daily = valid_mask.reshape(-1, steps_per_day)
+    
+    # Calculate daily actual uWUE
+    actual_wue_daily = np.full(num_days, np.nan)
+    
+    for day_idx in range(num_days):
+        day_mask = valid_mask_daily[day_idx]
+        if day_mask.sum() >= MIN_HALFHOURS_PER_DAY:
+            et_valid = et_daily[day_idx][day_mask][:, np.newaxis]
+            gxv_valid = gxv_daily[day_idx][day_mask][:, np.newaxis]
+            slope, _, _, _ = np.linalg.lstsq(et_valid, gxv_valid, rcond=None)
+            actual_wue_daily[day_idx] = slope[0]
+    
+    # Calculate 8-day window actual uWUE
+    actual_wue_8day = np.full(num_days, np.nan)
+    
+    for day_idx in range(num_days):
+        # Determine window boundaries
+        if day_idx < 4:
+            window_start_day = 4
+        elif day_idx > num_days - 4:
+            window_start_day = num_days - 8
         else:
-            uWUEa[j]     = np.nan
-
-    uWUEa_8day     = np.zeros([ET.reshape(-1,48).shape[0]]) * np.nan
-    uWUEa_8day_n   = np.zeros(ET.reshape(-1,48).shape[0])
-
-    for j in range(ET.reshape(-1,48).shape[0]):
-        if j<4:
-            k=4
-        elif j>ET.reshape(-1,48).shape[0]-4:
-            k=ET.reshape(-1,48).shape[0]-8
-        else:
-            k=j-4
-        start=k*48
-        end=(k+8)*48
-        if uWUEa_Mask[start:end].sum() >= MinHHPer8Day:
-            mask = uWUEa_Mask[start:end]
-            x = ET[start:end][mask][:,np.newaxis]
-            y= GxV[start:end][mask][:,np.newaxis]
-            a1, _, _, _ = np.linalg.lstsq(x, y, rcond=None)
-            uWUEa_8day[j]     = a1
-            uWUEa_8day_n[j]   = uWUEa_Mask[start:end].sum()
-        else:
-            uWUEa_8day[j]     = np.nan
-
-    ET_day      = ET[hourlyMask].reshape(-1,nStepsPerDay).sum(axis=1)
-    ToET_daily  = uWUEa/uWUEp
-    zhou_T      = ET_day*ToET_daily.T
-
-    ToET_8day   = uWUEa_8day/uWUEp
-    zhou_T_8day = ET_day*ToET_8day.T
-
-    return(uWUEp, zhou_T, zhou_T_8day)
+            window_start_day = day_idx - 4
+        
+        window_start = window_start_day * steps_per_day
+        window_end = (window_start_day + 8) * steps_per_day
+        
+        if valid_mask[window_start:window_end].sum() >= MIN_HALFHOURS_PER_8DAY:
+            window_mask = valid_mask[window_start:window_end]
+            et_valid = evapotranspiration[window_start:window_end][window_mask][:, np.newaxis]
+            gxv_valid = gpp_times_vpd_sqrt[window_start:window_end][window_mask][:, np.newaxis]
+            slope, _, _, _ = np.linalg.lstsq(et_valid, gxv_valid, rcond=None)
+            actual_wue_8day[day_idx] = slope[0]
+    
+    # Calculate daily ET sum
+    et_daily_sum = evapotranspiration[hourly_mask].reshape(-1, steps_per_day).sum(axis=1)
+    
+    # Calculate transpiration estimates
+    transpiration_ratio_daily = actual_wue_daily / potential_wue
+    daily_transpiration = et_daily_sum * transpiration_ratio_daily
+    
+    transpiration_ratio_8day = actual_wue_8day / potential_wue
+    transpiration_8day = et_daily_sum * transpiration_ratio_8day
+    
+    return potential_wue, daily_transpiration, transpiration_8day
