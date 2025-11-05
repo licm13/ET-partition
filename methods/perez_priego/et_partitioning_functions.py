@@ -47,66 +47,121 @@ def gc_model(par, Q, VPD, Tair, gcmax):
     sensitivity_function_scaled = sensitivity_function / (max_sens + 1e-6)
     return gcmax * sensitivity_function_scaled
 
-def get_1d_array(df, col):
-    values = df[col]
+def get_1d_array(dataframe, column_name):
+    """
+    Extract 1D array from DataFrame column, handling edge cases.
+    
+    Parameters
+    ----------
+    dataframe : pd.DataFrame
+        Input dataframe
+    column_name : str
+        Name of column to extract
+        
+    Returns
+    -------
+    np.ndarray
+        1D numpy array
+    """
+    values = dataframe[column_name]
     if isinstance(values, pd.DataFrame):
-        print(f"[警告] '{col}' 返回二维数组，尝试使用第一列")
+        print(f"[Warning] Column '{column_name}' returned 2D array, using first column")
         return values.iloc[:, 0].values
     return values.values
 
-def _prepare_data_for_models(par, data, Chi_o):
-    df = data.copy()
-    df['VPD'] /= 10.0
-    q_mask = df['Q'].isna()
-    if 'Q_in' in df.columns:
-        df.loc[q_mask, 'Q'] = df.loc[q_mask, 'Q_in'] * 2
-    df['Q'] = df['Q'].fillna(0)
+
+def _prepare_data_for_models(parameters, data, chi_optimal):
+    """
+    Prepare and calculate intermediate variables for physiological models.
     
-    Photos = get_1d_array(df, 'Photos')
-    H = get_1d_array(df, 'H')
-    VPD = get_1d_array(df, 'VPD')
-    Tair = get_1d_array(df, 'Tair')
-    Pair = get_1d_array(df, 'Pair')
-    Q = get_1d_array(df, 'Q')
-    Ca = get_1d_array(df, 'Ca')
-    WS = get_1d_array(df, 'WS')
-    Ustar = get_1d_array(df, 'Ustar')
+    Parameters
+    ----------
+    parameters : array-like
+        Model parameters [a1, D0, Topt, beta]
+    data : pd.DataFrame
+        Input data with required meteorological columns
+    chi_optimal : float
+        Optimal chi parameter under ideal conditions
+        
+    Returns
+    -------
+    dict
+        Dictionary containing calculated conductances and environmental variables
+    """
+    processed_data = data.copy()
+    processed_data['VPD'] /= 10.0  # Convert to kPa
+    
+    # Fill missing radiation with alternative source
+    radiation_missing = processed_data['Q'].isna()
+    if 'Q_in' in processed_data.columns:
+        processed_data.loc[radiation_missing, 'Q'] = processed_data.loc[radiation_missing, 'Q_in'] * 2
+    processed_data['Q'] = processed_data['Q'].fillna(0)
+    
+    # Extract variables as 1D arrays
+    photosynthesis = get_1d_array(processed_data, 'Photos')
+    sensible_heat = get_1d_array(processed_data, 'H')
+    vpd = get_1d_array(processed_data, 'VPD')
+    air_temp = get_1d_array(processed_data, 'Tair')
+    air_pressure = get_1d_array(processed_data, 'Pair')
+    radiation = get_1d_array(processed_data, 'Q')
+    co2_concentration = get_1d_array(processed_data, 'Ca')
+    wind_speed = get_1d_array(processed_data, 'WS')
+    friction_velocity = get_1d_array(processed_data, 'Ustar')
 
-    Cp = 1003.5
-    R_gas_constant = 287.058
-    M = 0.0289644
-    dens = (Pair * 1000) / (R_gas_constant * (Tair + 273.15) + 1e-6)
-    Mden = dens / M
+    # Physical constants
+    SPECIFIC_HEAT_AIR = 1003.5  # J/(kg·K)
+    GAS_CONSTANT_DRY_AIR = 287.058  # J/(kg·K)
+    MOLAR_MASS_AIR = 0.0289644  # kg/mol
+    
+    # Calculate air density and molar density
+    air_density = (air_pressure * 1000) / (GAS_CONSTANT_DRY_AIR * (air_temp + 273.15) + 1e-6)
+    molar_density = air_density / MOLAR_MASS_AIR
 
-    beta = par[3]
-    ra_m = WS / (Ustar**2 + 1e-6)
-    ra_b = 6.2 * (Ustar + 1e-6)**-0.67
-    ra = ra_m + ra_b
-    ra_w = ra_m + 2 * (1.05 / 0.71 / 1.57)**(2/3) * ra_b
-    ra_c = ra_m + 2 * (1.05 / 0.71)**(2/3) * ra_b
-    Tplant = (H * ra / (Cp * dens + 1e-6)) + Tair
-    es_plant = 0.61078 * np.exp((17.269 * Tplant) / (237.3 + Tplant))
-    es_air = 0.61078 * np.exp((17.269 * Tair) / (237.3 + Tair))
-    ea = es_air - VPD
-    VPD_plant = np.clip(es_plant - ea, a_min=0, a_max=None)
+    # Calculate aerodynamic resistances
+    beta = parameters[3]
+    resistance_momentum = wind_speed / (friction_velocity**2 + 1e-6)
+    resistance_boundary = 6.2 * (friction_velocity + 1e-6)**-0.67
+    resistance_total = resistance_momentum + resistance_boundary
+    resistance_water = resistance_momentum + 2 * (1.05 / 0.71 / 1.57)**(2/3) * resistance_boundary
+    resistance_co2 = resistance_momentum + 2 * (1.05 / 0.71)**(2/3) * resistance_boundary
+    
+    # Calculate plant temperature and VPD at leaf level
+    plant_temp = (sensible_heat * resistance_total / (SPECIFIC_HEAT_AIR * air_density + 1e-6)) + air_temp
+    saturation_vp_plant = 0.61078 * np.exp((17.269 * plant_temp) / (237.3 + plant_temp))
+    saturation_vp_air = 0.61078 * np.exp((17.269 * air_temp) / (237.3 + air_temp))
+    actual_vapor_pressure = saturation_vp_air - vpd
+    vpd_plant = np.clip(saturation_vp_plant - actual_vapor_pressure, a_min=0, a_max=None)
 
-    Photos_max = np.nanquantile(Photos, 0.90)
-    Dmax = df['VPD'][df['Photos'] > Photos_max].mean(skipna=True)
-    Chimax = Chi_o * (1 / (1 + beta * (Dmax**0.5 if Dmax > 0 else 0) + 1e-6))
-    gcmax_val = np.nanmedian(Photos_max / (Mden[df['Photos'] > Photos_max] * Ca[df['Photos'] > Photos_max] * (1 - Chimax) + 1e-6))
-    gcmax_val = gcmax_val if np.isfinite(gcmax_val) else 0.1
+    # Calculate maximum conductance under optimal conditions
+    photosynthesis_max = np.nanquantile(photosynthesis, 0.90)
+    vpd_at_max = processed_data['VPD'][processed_data['Photos'] > photosynthesis_max].mean(skipna=True)
+    chi_max = chi_optimal * (1 / (1 + beta * (vpd_at_max**0.5 if vpd_at_max > 0 else 0) + 1e-6))
+    
+    high_productivity_mask = processed_data['Photos'] > photosynthesis_max
+    conductance_max_value = np.nanmedian(
+        photosynthesis_max / (
+            molar_density[high_productivity_mask] * 
+            co2_concentration[high_productivity_mask] * 
+            (1 - chi_max) + 1e-6
+        )
+    )
+    conductance_max_value = conductance_max_value if np.isfinite(conductance_max_value) else 0.1
 
-    gc_mod = gc_model(par[:3], Q, VPD, Tair, gcmax=gcmax_val)
-    gw_mod = 1.6 * gc_mod
-    gc_bulk = Mden / (1 / (gc_mod + 1e-6) + ra_c)
-    gw_bulk = Mden / (1 / (gw_mod + 1e-6) + ra_w)
-    Chi = Chi_o * (1 / (1 + beta * (VPD_plant**0.5 if (VPD_plant > 0).any() else 0) + 1e-6))
+    # Calculate conductances
+    conductance_co2_modeled = gc_model(parameters[:3], radiation, vpd, air_temp, gcmax=conductance_max_value)
+    conductance_water_modeled = 1.6 * conductance_co2_modeled
+    conductance_co2_bulk = molar_density / (1 / (conductance_co2_modeled + 1e-6) + resistance_co2)
+    conductance_water_bulk = molar_density / (1 / (conductance_water_modeled + 1e-6) + resistance_water)
+    chi = chi_optimal * (1 / (1 + beta * (vpd_plant**0.5 if (vpd_plant > 0).any() else 0) + 1e-6))
 
     return {
-        "gc_bulk": gc_bulk, "gw_bulk": gw_bulk, "Chi": Chi,
-        "Ca": Ca, "VPD_plant": VPD_plant, "Pair": Pair
+        "gc_bulk": conductance_co2_bulk,
+        "gw_bulk": conductance_water_bulk,
+        "Chi": chi,
+        "Ca": co2_concentration,
+        "VPD_plant": vpd_plant,
+        "Pair": air_pressure
     }
-    print(f"[DEBUG] Q shape: {Q.shape}, Ca shape: {Ca.shape}, Chi shape: {Chi.shape}")
 
 def photos_model(par, data, Chi_o):
     data_renamed = data.rename(columns={'GPP_NT_VUT_MEAN': 'Photos', 'NEE_VUT_USTAR50_JOINTUNC': 'Photos_unc',
