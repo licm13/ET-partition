@@ -3,49 +3,132 @@
 # @Date: 2025-07-23
 # @Description: ET partitioning functions with MCMC timeout protection
 
+from dataclasses import dataclass
+from typing import Dict, Tuple
+
 import pandas as pd
 import numpy as np
 import emcee
 import time
 
+
+@dataclass
+class GrowthStatistics:
+    """Summary statistics derived from high photosynthesis observations."""
+
+    tair_mean: float
+    vpd_mean: float
+
+
+FLUXNET_TO_MODEL_COLUMNS: Dict[str, str] = {
+    "GPP_NT_VUT_MEAN": "Photos",
+    "NEE_VUT_USTAR50_JOINTUNC": "Photos_unc",
+    "H_F_MDS": "H",
+    "VPD_F": "VPD",
+    "TA_F": "Tair",
+    "PA_F": "Pair",
+    "PPFD_IN": "Q",
+    "SW_IN_F": "Q_in",
+    "CO2_F_MDS": "Ca",
+    "USTAR": "Ustar",
+    "WS_F": "WS",
+}
+
+
+def _rename_fluxnet_columns(data: pd.DataFrame) -> pd.DataFrame:
+    """Return a copy of ``data`` with FluxNet column names harmonised."""
+
+    return data.rename(columns=FLUXNET_TO_MODEL_COLUMNS)
+
+
+def _collect_growth_statistics(
+    data: pd.DataFrame,
+    col_photos: str,
+    col_vpd: str,
+    col_tair: str,
+) -> Tuple[pd.DataFrame, GrowthStatistics]:
+    """Prepare data for growth calculations and return summary statistics."""
+
+    renamed = data.rename(
+        columns={col_photos: "Photos", col_vpd: "VPD", col_tair: "Tair"}
+    ).copy()
+    renamed["VPD"] = renamed["VPD"] / 10.0
+
+    growth_threshold = renamed["Photos"].quantile(0.85)
+    high_photosynthesis_samples = renamed["Photos"] > growth_threshold
+    if not high_photosynthesis_samples.any():
+        high_photosynthesis_samples = renamed["Photos"].notna()
+
+    tair_mean = renamed.loc[high_photosynthesis_samples, "Tair"].mean(skipna=True)
+    vpd_mean = renamed.loc[high_photosynthesis_samples, "VPD"].mean(skipna=True)
+
+    return renamed, GrowthStatistics(tair_mean=tair_mean, vpd_mean=vpd_mean)
+
+
+def _sanitize_growth_means(growth_stats: GrowthStatistics) -> Tuple[float, float]:
+    """Return robust mean temperature and VPD estimates for growth calculations."""
+
+    tair_mean = growth_stats.tair_mean if np.isfinite(growth_stats.tair_mean) else 25.0
+    vpd_mean = growth_stats.vpd_mean if np.isfinite(growth_stats.vpd_mean) else 1.0
+    vpd_mean = max(vpd_mean, 1e-6)
+    return tair_mean, vpd_mean
+
+
+def _chi_from_statistics(
+    growth_stats: GrowthStatistics, c_coef: float, elevation: float
+) -> float:
+    """Calculate the optimal chi value from the provided summary statistics."""
+
+    tair_mean, vpd_mean = _sanitize_growth_means(growth_stats)
+    logistic_chi_o = (
+        0.0545 * (tair_mean - 25)
+        - 0.58 * np.log(vpd_mean)
+        - 0.0815 * elevation
+        + c_coef
+    )
+    return np.exp(logistic_chi_o) / (1 + np.exp(logistic_chi_o))
+
+
 def calculate_chi_o(data, col_photos, col_vpd, col_tair, c_coef, z):
-    df = data.copy()
-    df.rename(columns={col_photos: 'Photos', col_vpd: 'VPD', col_tair: 'Tair'}, inplace=True)
-    df['VPD'] = df['VPD'] / 10.0
-    growth_threshold = df['Photos'].quantile(0.85)
-    tmp = df[df['Photos'] > growth_threshold]
-    tair_g = tmp['Tair'].mean(skipna=True)
-    vpd_g = tmp['VPD'].mean(skipna=True)
-    logistic_chi_o = 0.0545 * (tair_g - 25) - 0.58 * np.log(vpd_g) - 0.0815 * z + c_coef
-    chi_o = np.exp(logistic_chi_o) / (1 + np.exp(logistic_chi_o))
-    return chi_o
+    _, growth_stats = _collect_growth_statistics(data, col_photos, col_vpd, col_tair)
+    return _chi_from_statistics(growth_stats, c_coef=c_coef, elevation=z)
+
 
 def calculate_WUE_o(data, col_photos, col_vpd, col_tair, c_coef, z):
-    df = data.copy()
-    df.rename(columns={col_photos: 'Photos', col_vpd: 'VPD', col_tair: 'Tair'}, inplace=True)
-    df['VPD'] = df['VPD'] / 10.0
-    growth_threshold = df['Photos'].quantile(0.85)
-    tmp = df[df['Photos'] > growth_threshold]
-    tair_g = tmp['Tair'].mean(skipna=True)
-    vpd_g = tmp['VPD'].mean(skipna=True)
-    chi_o = calculate_chi_o(data, col_photos, col_vpd, col_tair, c_coef, z)
-    wue_o = (390 * (1 - chi_o) * 96) / (1.6 * vpd_g) * 0.001
+    _, growth_stats = _collect_growth_statistics(data, col_photos, col_vpd, col_tair)
+    _, vpd_mean = _sanitize_growth_means(growth_stats)
+    chi_o = _chi_from_statistics(growth_stats, c_coef=c_coef, elevation=z)
+    wue_o = (390 * (1 - chi_o) * 96) / (1.6 * vpd_mean) * 0.001
     return wue_o
 
-def gc_model(par, Q, VPD, Tair, gcmax):
-    a1, D0, Topt = par[0], par[1], par[2]
-    FQ = Q / (Q + a1 + 1e-6)
-    Fd = np.exp(-D0 * VPD)
-    Tl, Th = 0, 50
-    b4 = (Th - Topt) / (Th - Tl)
-    b3 = 1 / ((Topt - Tl) * (Th - Topt)**b4)
-    temp_term = np.clip(Th - Tair, a_min=0, a_max=None)
-    Ftemp = b3 * (Tair - Tl) * temp_term**b4
-    Ftemp = np.clip(Ftemp, a_min=0, a_max=None)
-    sensitivity_function = FQ * Fd * Ftemp
-    max_sens = np.nanmax(sensitivity_function)
-    sensitivity_function_scaled = sensitivity_function / (max_sens + 1e-6)
-    return gcmax * sensitivity_function_scaled
+
+def gc_model(parameters, radiation, vpd, air_temperature, max_conductance):
+    parameters = par
+    radiation = Q
+    vpd = VPD
+    air_temperature = Tair
+    max_conductance = gcmax
+
+    a1, d0, optimal_temperature = parameters[0], parameters[1], parameters[2]
+    light_response = radiation / (radiation + a1 + 1e-6)
+    vapor_pressure_response = np.exp(-d0 * vpd)
+    min_temperature, max_temperature = 0, 50
+    beta_exponent = (max_temperature - optimal_temperature) / (max_temperature - min_temperature)
+    beta_scale = 1 / (
+        (optimal_temperature - min_temperature)
+        * (max_temperature - optimal_temperature) ** beta_exponent
+    )
+    temperature_difference = np.clip(max_temperature - air_temperature, a_min=0, a_max=None)
+    temperature_response = (
+        beta_scale
+        * (air_temperature - min_temperature)
+        * temperature_difference**beta_exponent
+    )
+    temperature_response = np.clip(temperature_response, a_min=0, a_max=None)
+    sensitivity_function = light_response * vapor_pressure_response * temperature_response
+    max_sensitivity = np.nanmax(sensitivity_function)
+    sensitivity_function_scaled = sensitivity_function / (max_sensitivity + 1e-6)
+    return max_conductance * sensitivity_function_scaled
 
 def get_1d_array(dataframe, column_name):
     """
@@ -148,7 +231,13 @@ def _prepare_data_for_models(parameters, data, chi_optimal):
     conductance_max_value = conductance_max_value if np.isfinite(conductance_max_value) else 0.1
 
     # Calculate conductances
-    conductance_co2_modeled = gc_model(parameters[:3], radiation, vpd, air_temp, gcmax=conductance_max_value)
+    conductance_co2_modeled = gc_model(
+        parameters[:3],
+        radiation,
+        vpd,
+        air_temp,
+        conductance_max_value,
+    )
     conductance_water_modeled = 1.6 * conductance_co2_modeled
     conductance_co2_bulk = molar_density / (1 / (conductance_co2_modeled + 1e-6) + resistance_co2)
     conductance_water_bulk = molar_density / (1 / (conductance_water_modeled + 1e-6) + resistance_water)
@@ -163,32 +252,26 @@ def _prepare_data_for_models(parameters, data, chi_optimal):
         "Pair": air_pressure
     }
 
-def photos_model(par, data, Chi_o):
-    data_renamed = data.rename(columns={'GPP_NT_VUT_MEAN': 'Photos', 'NEE_VUT_USTAR50_JOINTUNC': 'Photos_unc',
-                                        'H_F_MDS': 'H', 'VPD_F': 'VPD', 'TA_F': 'Tair', 'PA_F': 'Pair',
-                                        'PPFD_IN': 'Q', 'SW_IN_F': 'Q_in', 'CO2_F_MDS': 'Ca',
-                                        'USTAR': 'Ustar', 'WS_F': 'WS'})
-    prepared = _prepare_data_for_models(par, data_renamed, Chi_o)
+def photos_model(parameters, data, Chi_o):
+    data_renamed = _rename_fluxnet_columns(data)
+    prepared = _prepare_data_for_models(parameters, data_renamed, Chi_o)
     return prepared['gc_bulk'] * prepared['Ca'] * (1 - prepared['Chi'])
 
-def transpiration_model(par, data, Chi_o):
-    data_renamed = data.rename(columns={'GPP_NT_VUT_MEAN': 'Photos', 'NEE_VUT_USTAR50_JOINTUNC': 'Photos_unc',
-                                        'H_F_MDS': 'H', 'VPD_F': 'VPD', 'TA_F': 'Tair', 'PA_F': 'Pair',
-                                        'PPFD_IN': 'Q', 'SW_IN_F': 'Q_in', 'CO2_F_MDS': 'Ca',
-                                        'USTAR': 'Ustar', 'WS_F': 'WS'})
-    prepared = _prepare_data_for_models(par, data_renamed, Chi_o)
+def transpiration_model(parameters, data, Chi_o):
+    data_renamed = _rename_fluxnet_columns(data)
+    prepared = _prepare_data_for_models(parameters, data_renamed, Chi_o)
     return prepared['gw_bulk'] * prepared['VPD_plant'] / (prepared['Pair'] + 1e-6) * 1000
 
-def log_prob_function(par, data, Chi_o, WUE_o, par_lower, par_upper):
-    if not all(par_lower[i] <= par[i] <= par_upper[i] for i in range(len(par))):
+def log_prob_function(parameters, data, Chi_o, WUE_o, par_lower, par_upper):
+    if not all(par_lower[i] <= parameters[i] <= par_upper[i] for i in range(len(parameters))):
         return -np.inf
     df = data[(data['Photos'] > 0)].dropna(subset=['Photos', 'Q', 'VPD', 'Tair'])
     if len(df) < 10:
         return -np.inf
     Photos = df['Photos'].values
     Photos_unc = df['Photos_unc'].values
-    Photos_mod = photos_model(par, df, Chi_o)
-    transpiration_mod = transpiration_model(par, df, Chi_o)
+    Photos_mod = photos_model(parameters, df, Chi_o)
+    transpiration_mod = transpiration_model(parameters, df, Chi_o)
     if not (np.all(np.isfinite(Photos_mod)) and np.all(np.isfinite(transpiration_mod))):
         return -np.inf
     WaterCost_i = np.nansum(transpiration_mod) / (np.nansum(Photos_mod) + 1e-6)
@@ -202,10 +285,7 @@ def optimal_parameters(par_lower, par_upper, data, Chi_o, WUE_o):
     print("开始 MCMC 参数优化 ...")
     start_time = time.time()
     max_duration = 30  # 超时秒数
-    data_renamed = data.rename(columns={'GPP_NT_VUT_MEAN': 'Photos', 'NEE_VUT_USTAR50_JOINTUNC': 'Photos_unc',
-                                        'H_F_MDS': 'H', 'VPD_F': 'VPD', 'TA_F': 'Tair', 'PA_F': 'Pair',
-                                        'PPFD_IN': 'Q', 'SW_IN_F': 'Q_in', 'CO2_F_MDS': 'Ca',
-                                        'USTAR': 'Ustar', 'WS_F': 'WS'})
+    data_renamed = _rename_fluxnet_columns(data)
     ndim = len(par_lower)
     nwalkers = 10
     nsteps = 100
