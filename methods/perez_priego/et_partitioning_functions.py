@@ -102,7 +102,7 @@ def calculate_WUE_o(data, col_photos, col_vpd, col_tair, c_coef, z):
     return wue_o
 
 
-def gc_model(par, Q, VPD, Tair, gcmax):
+def gc_model(parameters, radiation, vpd, air_temperature, max_conductance):
     parameters = par
     radiation = Q
     vpd = VPD
