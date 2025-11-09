@@ -26,4 +26,4 @@ dependencies = [
 "Source" = "https://github.com/example/et-partition"
 
 [tool.setuptools.packages.find]
-include = ["methods*", "analysis*", "tests*"]
+include = ["methods*", "analysis*", "tests*", "utils*"]
