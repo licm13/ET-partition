@@ -38,3 +38,5 @@ tests/__init__.py
 tests/test_all_methods.py
 tests/analysis/test_pft_sensitivity.py
 tests/analysis/test_simulation.py
+utils/__init__.py
+utils/plotting.py

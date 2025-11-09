@@ -35,6 +35,7 @@ from analysis import (
     PREDEFINED_PFT_SCENARIOS,
     visualization
 )
+from utils.plotting import save_figure, print_performance_summary
 
 
 def advanced_pft_comparison():
@@ -66,8 +67,8 @@ def advanced_pft_comparison():
         include_stress_analysis=True
     )
     results = comparison.run()
-    result_df = comparison.results_to_dataframe(results)
-    summary_df = comparison.aggregate_metrics(result_df)
+    aggregate_results_df = comparison.results_to_dataframe(results)
+    performance_summary_df = comparison.aggregate_metrics(aggregate_results_df)
 
     # Create output directory
     output_dir = project_root / "outputs" / "advanced_analysis"
@@ -76,8 +77,8 @@ def advanced_pft_comparison():
     # Save detailed results
     detailed_path = output_dir / "pft_method_diagnostics.csv"
     summary_path = output_dir / "pft_method_summary.csv"
-    result_df.to_csv(detailed_path, index=False)
-    summary_df.to_csv(summary_path, index=False)
+    aggregate_results_df.to_csv(detailed_path, index=False)
+    performance_summary_df.to_csv(summary_path, index=False)
 
     print("\n详细的情景/方法指标保存至 / Detailed metrics saved to:", detailed_path)
     print("跨情景汇总保存至 / Scenario summary saved to:", summary_path)
@@ -85,61 +86,51 @@ def advanced_pft_comparison():
     # Display summary statistics
     print("\n跨情景平均性能指标 / Cross-scenario mean performance metrics:")
     print("=" * 80)
-    for _, row in summary_df.iterrows():
-        print(f"\n{row['method']}:")
-        print(f"  RMSE_T: {row['rmse_T_mean']:.3f} ± {row['rmse_T_std']:.3f}")
-        print(f"  RMSE_E: {row['rmse_E_mean']:.3f} ± {row['rmse_E_std']:.3f}")
-        print(f"  NSE_T:  {row['nse_T_mean']:.3f} ± {row['nse_T_std']:.3f}")
-        print(f"  KGE_T:  {row['kge_T_mean']:.3f} ± {row['kge_T_std']:.3f}")
-        print(f"  Corr_T: {row['correlation_T_mean']:.3f} ± {row['correlation_T_std']:.3f}")
+    print_performance_summary(performance_summary_df)
 
     # Generate visualizations
     print("\n生成可视化图表 / Generating visualizations...")
 
     try:
         # Heatmap of RMSE_T
-        fig1 = visualization.plot_performance_heatmap(
-            result_df, metric="rmse_T", title="Transpiration RMSE across PFTs"
+        heatmap_fig = visualization.plot_performance_heatmap(
+            aggregate_results_df, metric="rmse_T", title="Transpiration RMSE across PFTs"
         )
-        fig1.savefig(output_dir / "heatmap_rmse_T.png", dpi=300, bbox_inches='tight')
-        print(f"  已保存 / Saved: heatmap_rmse_T.png")
-        plt.close(fig1)
+        save_figure(heatmap_fig, output_dir / "heatmap_rmse_T.png")
 
         # Bar plots of multiple metrics
-        fig2 = visualization.plot_method_comparison_bars(summary_df)
-        fig2.savefig(output_dir / "method_comparison_bars.png", dpi=300, bbox_inches='tight')
-        print(f"  已保存 / Saved: method_comparison_bars.png")
-        plt.close(fig2)
+        method_bars_fig = visualization.plot_method_comparison_bars(performance_summary_df)
+        save_figure(method_bars_fig, output_dir / "method_comparison_bars.png")
 
         # Time series for one scenario
-        from analysis import run_method_emulators
+        from analysis import run_method_emulators as run_emulators
         scenario_name = "ENF"
         synthetic_data = comparison.get_synthetic_data(scenario_name)
         if synthetic_data is not None:
-            method_estimates = run_method_emulators(synthetic_data)
-            fig3 = visualization.plot_time_series_comparison(
-                synthetic_data, method_estimates, scenario_name, n_days=30
+            emulator_estimates = run_emulators(synthetic_data)
+            timeseries_fig = visualization.plot_time_series_comparison(
+                synthetic_data, emulator_estimates, scenario_name, n_days=30
             )
-            fig3.savefig(output_dir / f"timeseries_{scenario_name}.png", dpi=300, bbox_inches='tight')
-            print(f"  已保存 / Saved: timeseries_{scenario_name}.png")
-            plt.close(fig3)
+            save_figure(timeseries_fig, output_dir / f"timeseries_{scenario_name}.png")
 
             # Stress response analysis
-            fig4 = visualization.plot_stress_response(
-                synthetic_data, method_estimates, scenario_name
+            stress_response_fig = visualization.plot_stress_response(
+                synthetic_data, emulator_estimates, scenario_name
             )
-            fig4.savefig(output_dir / f"stress_response_{scenario_name}.png", dpi=300, bbox_inches='tight')
-            print(f"  已保存 / Saved: stress_response_{scenario_name}.png")
-            plt.close(fig4)
+            save_figure(stress_response_fig, output_dir / f"stress_response_{scenario_name}.png")
 
+    except OSError as e:
+        print(f"  可视化过程中出现I/O错误 / I/O error during visualization: {e}")
     except Exception as e:
         print(f"  可视化过程中出现警告 / Warning during visualization: {e}")
+        import traceback
+        traceback.print_exc()
 
     # Performance ranking
     print("\n方法性能排名 (按RMSE_T) / Method ranking by RMSE_T:")
-    ranking = comparison.performance_ranking(result_df, metric="rmse_T")
-    for i, row in ranking.iterrows():
-        print(f"  {i+1}. {row['method']}: {row['rmse_T']:.3f}")
+    ranking_df = comparison.performance_ranking(aggregate_results_df, metric="rmse_T")
+    for i, row in enumerate(ranking_df.itertuples(index=False), start=1):
+        print(f"  {i}. {row.method}: {row.rmse_T:.3f}")
 
     print(f"\n所有输出文件保存至 / All outputs saved to: {output_dir}")
 
@@ -174,37 +165,40 @@ def comprehensive_pft_analysis():
     print("Running simulations (this may take a while)...")
 
     results = comparison.run()
-    result_df = comparison.results_to_dataframe(results)
-    summary_df = comparison.aggregate_metrics(result_df)
+    aggregate_results_df = comparison.results_to_dataframe(results)
+    performance_summary_df = comparison.aggregate_metrics(aggregate_results_df)
 
     # Create output directory
     output_dir = project_root / "outputs" / "comprehensive_analysis"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Save all results
-    result_df.to_csv(output_dir / "full_results.csv", index=False)
-    summary_df.to_csv(output_dir / "summary.csv", index=False)
+    aggregate_results_df.to_csv(output_dir / "full_results.csv", index=False)
+    performance_summary_df.to_csv(output_dir / "summary.csv", index=False)
 
     # Analyze seasonal performance if available
-    seasonal_cols = [col for col in result_df.columns if 'rmse_T_' in col and col != 'rmse_T']
+    seasonal_cols = [col for col in aggregate_results_df.columns if 'rmse_T_' in col and col != 'rmse_T']
     if seasonal_cols:
         print("\n季节性性能分析 / Seasonal performance analysis:")
         for season in ['spring', 'summer', 'fall', 'winter']:
             col_name = f'rmse_T_{season}'
-            if col_name in result_df.columns:
-                season_mean = result_df.groupby('method')[col_name].mean()
+            if col_name in aggregate_results_df.columns:
+                season_mean = aggregate_results_df.groupby('method')[col_name].mean()
                 print(f"\n{season.capitalize()}:")
                 for method, value in season_mean.items():
                     print(f"  {method}: {value:.3f}")
 
         # Plot seasonal heatmap
         try:
-            fig = visualization.plot_seasonal_performance(result_df)
-            fig.savefig(output_dir / "seasonal_performance.png", dpi=300, bbox_inches='tight')
+            fig = visualization.plot_seasonal_performance(aggregate_results_df)
+            save_figure(fig, output_dir / "seasonal_performance.png")
             print(f"\n季节性能图已保存 / Seasonal performance plot saved")
-            plt.close(fig)
+        except OSError as e:
+            print(f"无法生成季节性能图 (I/O error) / Cannot generate seasonal plot: {e}")
         except Exception as e:
             print(f"无法生成季节性能图 / Cannot generate seasonal plot: {e}")
+            import traceback
+            traceback.print_exc()
 
     # Generate comprehensive visualizations
     print("\n生成综合可视化图表...")
@@ -213,12 +207,11 @@ def comprehensive_pft_analysis():
     # Multiple metric heatmaps
     metrics_to_plot = ['rmse_T', 'rmse_E', 'correlation_T', 'nse_T', 'kge_T']
     for metric in metrics_to_plot:
-        if metric in result_df.columns:
+        if metric in aggregate_results_df.columns:
             try:
-                fig = visualization.plot_performance_heatmap(result_df, metric=metric)
-                fig.savefig(output_dir / f"heatmap_{metric}.png", dpi=300, bbox_inches='tight')
-                plt.close(fig)
-            except:
+                fig = visualization.plot_performance_heatmap(aggregate_results_df, metric=metric)
+                save_figure(fig, output_dir / f"heatmap_{metric}.png")
+            except Exception:
                 pass
 
     print(f"\n综合分析完成！所有输出保存至 / Comprehensive analysis complete! All outputs saved to:")
@@ -226,8 +219,8 @@ def comprehensive_pft_analysis():
 
     # Print best method for each PFT
     print("\n各PFT最佳方法 (按RMSE_T) / Best method for each PFT (by RMSE_T):")
-    for scenario_name in result_df['scenario'].unique():
-        scenario_data = result_df[result_df['scenario'] == scenario_name]
+    for scenario_name in aggregate_results_df['scenario'].unique():
+        scenario_data = aggregate_results_df[aggregate_results_df['scenario'] == scenario_name]
         best_method = scenario_data.loc[scenario_data['rmse_T'].idxmin(), 'method']
         best_rmse = scenario_data['rmse_T'].min()
         print(f"  {scenario_name}: {best_method} (RMSE = {best_rmse:.3f})")
