@@ -451,9 +451,8 @@ def benchmark_perez_priego(data: pd.DataFrame) -> MethodBenchmark:
         T_air = data['TA_F'].values
         P_atm = np.full(n_samples, 101.325)
         
-        # Benchmark
-        gc_module = gc  # Save reference to gc module
-        gc_module.collect()
+        # Benchmark - run garbage collection before timing
+        gc.collect()
         with MemoryProfiler() as mem:
             start_time = time.perf_counter()
             

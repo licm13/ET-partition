@@ -185,9 +185,9 @@ def calculate_transpiration_numba(
         # Water vapor conductance is 1.6x CO2 conductance
         gw = 1.6 * gc[i]
         
-        # Transpiration from Fick's law
-        # T = gw * (VPD / P)
-        T[i] = gw * VPD_plant[i] / (P_atm[i] + 1e-10) * 1000  # mmol/m²/s
+        # Transpiration from Fick's law: T = gw * (VPD / P)
+        # Multiply by 1000 to convert mol/m²/s to mmol/m²/s
+        T[i] = gw * VPD_plant[i] / (P_atm[i] + 1e-10) * 1000
     
     return T
 

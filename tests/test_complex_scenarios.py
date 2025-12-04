@@ -745,10 +745,14 @@ class TestEdgeCases:
         expected_nan = nan_gpp_idx.union(nan_le_idx)
         
         # All NaN ratios should be where inputs were NaN (or LE was 0)
-        for idx in nan_ratio_idx:
-            in_expected = idx in expected_nan
-            le_zero = data.loc[idx, 'LE_F_MDS'] == 0 if pd.notna(data.loc[idx, 'LE_F_MDS']) else False
-            assert in_expected or le_zero, f"Unexpected NaN at index {idx}"
+        # Use vectorized operations for efficiency
+        unexpected_nan_mask = ~nan_ratio_idx.isin(expected_nan)
+        if unexpected_nan_mask.any():
+            unexpected_indices = nan_ratio_idx[unexpected_nan_mask]
+            le_at_unexpected = data.loc[unexpected_indices, 'LE_F_MDS']
+            # Check if LE is zero at these indices (which would also cause NaN)
+            valid_unexpected = unexpected_indices[le_at_unexpected != 0]
+            assert len(valid_unexpected) == 0, f"Unexpected NaN at indices: {valid_unexpected.tolist()[:5]}"
 
 
 # =============================================================================
