@@ -4,6 +4,18 @@ __pycache__/
 *.dylib
 .ipynb_checkpoints/
 outputs/
+
+# Test artifacts
+.pytest_cache/
+*.log
+coverage.xml
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+
 # Legacy build artefacts
 meta.yaml
 build/
