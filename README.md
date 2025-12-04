@@ -121,14 +121,29 @@ stored alongside the outputs.
 
 ## Tutorials
 
-Three Jupyter notebooks in the `notebooks/` directory mirror the original
-method documentation and provide step-by-step demonstrations. Launch them with
-JupyterLab after installing the dependencies.
+Jupyter notebooks in the `notebooks/` directory provide step-by-step demonstrations:
+
+| Notebook | Description |
+|----------|-------------|
+| [`ET_Partition_Introduction_For_Beginners.ipynb`](notebooks/ET_Partition_Introduction_For_Beginners.ipynb) | **New!** Comprehensive beginner's guide (bilingual EN/CN) |
+| [`Zhou_tutorial.ipynb`](notebooks/Zhou_tutorial.ipynb) | uWUE method tutorial |
+| [`TEA_tutorial.ipynb`](notebooks/TEA_tutorial.ipynb) | TEA method tutorial |
+| [`Perez-Priego_tutorial.ipynb`](notebooks/Perez-Priego_tutorial.ipynb) | Perez-Priego method tutorial |
+
+Launch them with JupyterLab after installing the dependencies:
 
 ```bash
 pip install jupyterlab
 jupyter lab
 ```
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [`docs/ET_Partition_Methods_Deep_Dive.md`](docs/ET_Partition_Methods_Deep_Dive.md) | **New!** In-depth technical documentation with mathematical derivations |
+| [`docs/partition_methods_math.md`](docs/partition_methods_math.md) | Original mathematical foundations |
+| [`docs/AI_OPTIMIZATION_PROMPTS.md`](docs/AI_OPTIMIZATION_PROMPTS.md) | **New!** AI coding assistant prompts for development |
 
 ## Third-party material
 
@@ -138,13 +153,38 @@ are preserved for traceability but are not imported by default.
 
 ## Testing
 
-A comprehensive test script is provided to validate all methods using the sample data:
+A comprehensive test suite validates all methods using the sample data:
 
 ```bash
-python tests/test_all_methods.py
+# Run all tests with pytest
+pytest tests/ -v
+
+# Run specific test categories
+pytest tests/test_all_methods.py -v          # Integration tests
+pytest tests/test_complex_scenarios.py -v    # Edge cases and benchmarks
+
+# Run with coverage
+pytest tests/ --cov=methods --cov=utils
 ```
 
-This will run all three methods on the FI-Hyy test site and verify the outputs.
+The test suite includes:
+- **Integration tests**: Full workflow validation for all three methods
+- **Complex scenarios**: Missing data handling, multi-biome scenarios
+- **Performance benchmarks**: Execution time and memory tests
+- **Edge cases**: Zero GPP, extreme VPD, negative fluxes
+
+## Performance Optimization
+
+The codebase includes optimized implementations for better performance:
+
+- **Numba-accelerated Perez-Priego**: 5-10x speedup (`methods/perez_priego/et_partitioning_functions_numba.py`)
+- **Vectorized uWUE**: Fully vectorized operations (`methods/uwue/zhou_optimized.py`)
+- **Benchmark utilities**: Performance profiling tools (`utils/benchmark.py`)
+
+Run benchmarks:
+```bash
+python -m utils.benchmark --years 3
+```
 
 ## Method descriptions
 

@@ -6,3 +6,5 @@ __all__ = [
     'save_figure',
     'print_performance_summary',
 ]
+
+# Note: benchmark module available as utils.benchmark
