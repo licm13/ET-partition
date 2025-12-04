@@ -103,11 +103,12 @@ def calculate_WUE_o(data, col_photos, col_vpd, col_tair, c_coef, z):
 
 
 def gc_model(parameters, radiation, vpd, air_temperature, max_conductance):
-    parameters = par
-    radiation = Q
-    vpd = VPD
-    air_temperature = Tair
-    max_conductance = gcmax
+    # Note: These variable reassignments were causing errors and are unnecessary
+    # parameters = par  # Removed: 'par' is not defined
+    # radiation = Q      # Removed: 'Q' is not defined
+    # vpd = VPD          # Removed: 'VPD' is not defined
+    # air_temperature = Tair  # Removed: 'Tair' is not defined
+    # max_conductance = gcmax # Removed: 'gcmax' is not defined
 
     a1, d0, optimal_temperature = parameters[0], parameters[1], parameters[2]
     light_response = radiation / (radiation + a1 + 1e-6)
